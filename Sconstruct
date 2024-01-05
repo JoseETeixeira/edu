@@ -1,0 +1,39 @@
+import os
+
+env = Environment(CXX='g++', CXXFLAGS=['-std=c++20'])
+
+def find_tests_in_directory(directory):
+    test_files = []
+    for root, dirs, files in os.walk(directory):
+        if '__tests__' in root:
+            for file in files:
+                if file.endswith('.cpp'):
+                    test_files.append(os.path.join(root, file))
+    return test_files
+
+# Create the tests output directory if it doesn't exist
+tests_output_dir = 'build/tests'
+if not os.path.exists(tests_output_dir):
+    os.makedirs(tests_output_dir)
+
+# Path to the Google Test source
+gtest_dir = 'lib/googletest'
+
+# Compile Google Test source files directly instead of creating a library
+gtest_src = Glob(os.path.join(gtest_dir, 'googletest/src/gtest-all.cc'))
+gtest_objs = env.Object(gtest_src)
+
+# Add Google Test include directory to the build
+env.Append(CPPPATH=[os.path.join(gtest_dir, 'googletest/include'),
+                    os.path.join(gtest_dir, 'googletest')])
+
+
+test_files = find_tests_in_directory('src')
+
+# Link Google Test object files directly with your test files
+gtest_main_src = Glob(os.path.join(gtest_dir, 'googletest/src/gtest_main.cc'))
+gtest_main_obj = env.Object(gtest_main_src)
+
+# Now include this object file in the Program call
+env.Program(target=os.path.join(tests_output_dir, 'runTests'),
+            source=test_files + gtest_objs + gtest_main_obj)

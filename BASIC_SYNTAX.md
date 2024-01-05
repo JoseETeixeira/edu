@@ -1,74 +1,86 @@
 ## BASIC SYNTAX
 
-### 1. Variable Declaration
+### 1. Types
 
-```typescript
-let variableName = value; // Mutable variable
-const CONSTANT_NAME = value; // Constant
+Boolean: bool
+Character: char
+Integer: int
+Floating point: float
+Double floating point: double
+Valueless: void
+Wide character: wchar_t
+String: string
+Error: Error
+
+the Error type is composed of the message and the errorCode, where both are of type string
+
+### 2. Variable Declaration
+
+```
+Type variableName = value; // Mutable variable where Type is any C++ type (int, float, etc.)
+const Type CONSTANT_NAME = value; // Constant
 ```
 
-### 2. Functions
+### 3. Functions
 
-Functions are defined similarly to TypeScript. The `export` keyword is used to make functions available for import.
+The `export` keyword is used to make functions available for import. Type is any C++ type (int, float, etc.).
 
-```typescript
-export function functionName(parameter1, parameter2) {
+```
+export Type function functionName(Type parameter1, Type parameter2) {
   // Function body
   console.log("Function called");
 }
 ```
 
-### 3. Classes and Inheritance
+### 4. Classes and Inheritance
 
-Classes and inheritance follow a TypeScript-like syntax.
+The arguments are optional (and can be as many as the developer wants) and the Base Class can be constructed with or without them. Type is any C++ type (int, float, etc.).
 
-```typescript
+```
 class BaseClass {
-  constructor() {
+  constructor(Type argument1, Type argument2) {
     // Constructor code
   }
 
-  method() {
+  Type method() {
     // Method implementation
   }
 }
 
 class DerivedClass extends BaseClass {
-  constructor() {
+  constructor(Type argument1, Type argument2) {
     super(); // Calling the base class constructor
   }
 
-  anotherMethod() {
+  Type anotherMethod() {
     // Another method
   }
 }
 ```
 
-### 4. Interfaces
+### 5. Interfaces
 
 Interfaces are used to define contracts for classes.
 
-```typescript
+```
 interface MyInterface {
-  property: Type;
-  method(parameter: Type): ReturnType;
+  Type property;
+  ReturnType method(Type parameter);
 }
 ```
 
-### 5. Object Creation
+### 6. Object Creation
 
 Objects are created directly, without using the `new` keyword.
 
-```typescript
-let object = DerivedClass();
+```
+DerivedClass object = DerivedClass(argument1, argument2);
 ```
 
-### 6. Templates and Generics
+### 7. Templates and Generics
 
-Template syntax is inspired by TypeScript.
-
-```typescript
-function genericFunction<T>(arg: T): T {
+```
+T function genericFunction<T>(arg: T) {
   return arg;
 }
 ```
@@ -77,9 +89,9 @@ function genericFunction<T>(arg: T): T {
 
 Async functions and await are used for handling asynchronous operations.
 
-```typescript
-async function asyncFunction() {
-  let result = await anotherAsyncFunction();
+```
+async Type function asyncFunction() {
+  AsyncFunctionType result = await anotherAsyncFunction();
   console.log(result);
 }
 ```
@@ -88,10 +100,10 @@ async function asyncFunction() {
 
 Error handling can use try-catch blocks, similar to TypeScript.
 
-```typescript
+```
 try {
   // Code that might throw an error
-} catch (error) {
+} catch (Error error) {
   console.error(error);
 }
 ```
@@ -100,7 +112,7 @@ try {
 
 Modules are imported in a manner similar to TypeScript.
 
-```typescript
+```
 import { functionName, ClassName } from "module-name";
 ```
 
@@ -112,8 +124,8 @@ These are handled automatically by the language runtime, so they do not have dir
 
 All variables are passed by reference by default. To pass by copy, a `copy` function is used.
 
-```typescript
-function takesCopy(value) {
+```
+Type function takesCopy(value) {
   let copyValue = copy(value);
   // Use copyValue
 }
@@ -123,14 +135,22 @@ function takesCopy(value) {
 
 `null` is used instead of `NULL` or `0` for null references.
 
-```typescript
-let nullableVariable = null;
+```
+Type nullableVariable = null;
 ```
 
 ### 13. Printing to Console
 
 The `console.log()` function is used for printing.
 
-```typescript
+```
 console.log("This is a message");
+```
+
+### 14. Receiving input
+
+The `input()` function is used for receiving inputs from the user.
+
+```
+Type data = input(); //populates data with the value received from the input function cast to Type
 ```

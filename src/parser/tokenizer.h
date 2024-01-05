@@ -68,6 +68,64 @@ private:
   size_t position;
   int line;
 
+  bool isKeyword(const std::string &value) {
+    static const std::set<std::string> keywords = {
+        "bool",     "char",   "int",     "float", "double",    "void",
+        "wchar_t",  "string", "Error",   "class", "interface", "function",
+        "const",    "export", "extends", "async", "await",     "null",
+        "true",     "false",  "try",     "catch", "import",    "from",
+        "template", "copy"
+        // Add other keywords specific to your language
+    };
+
+    return keywords.find(value) != keywords.end();
+  }
+
+  Token characterLiteral() {
+    position++; // Skip opening quote
+    if (position >= source.length()) {
+      std::cerr << "Error: Unterminated character literal at line " << line
+                << std::endl;
+      return {TokenType::Unknown, "", line};
+    }
+
+    char charValue = source[position++];
+
+    // Handle escape sequences in char literals if needed
+    if (charValue == '\\' && position < source.length()) {
+      charValue = processEscapeSequence(source[position++]);
+    }
+
+    if (position >= source.length() || source[position] != '\'') {
+      std::cerr << "Error: Unterminated character literal at line " << line
+                << std::endl;
+      return {TokenType::Unknown, "", line};
+    }
+
+    position++; // Skip closing quote
+
+    // Convert charValue to a string
+    return {TokenType::Char, std::string(1, charValue), line};
+  }
+
+  bool isOperatorOrPunctuatorStart(char ch) {
+    return isOperator(ch) || isPunctuator(ch);
+  }
+
+  bool isOperator(char ch) {
+    static const std::string opStartChars = "+-*/%=&|<>!.";
+    return opStartChars.find(ch) != std::string::npos;
+  }
+
+  bool isUnknownCharacter(char ch) {
+    static const std::string validChars =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        "+-*/%=&|<>!.,;()[]{}: \t\n" // Include ':' for generics syntax
+        "'\"\\`"; // Include backtick (`) if template strings are supported
+
+    return validChars.find(ch) == std::string::npos;
+  }
+
   void skipWhitespaceAndComments() {
     bool inComment = false;
     while (position < source.length() &&
@@ -110,18 +168,6 @@ private:
         isKeyword(value) ? TokenType::Keyword : TokenType::Identifier;
 
     return {type, value, line};
-  }
-
-  bool isKeyword(const std::string &value) {
-    // Define all language's keywords
-    static const std::set<std::string> keywords = {
-        "class",  "interface", "function", "let",      "const", "if",
-        "else",   "for",       "while",    "return",   "break", "continue",
-        "switch", "case",      "default",  "try",      "catch", "throw",
-        "import", "from",      "export",   "extends",  "async", "await",
-        "null",   "true",      "false",    "template", "copy"};
-
-    return keywords.find(value) != keywords.end();
   }
 
   Token numericLiteral() {
@@ -167,67 +213,51 @@ private:
     return {TokenType::String, value, line};
   }
 
-  std::string processEscapeSequence(char escapedChar) {
+  char processEscapeSequence(char escapedChar) {
     switch (escapedChar) {
     case 'n':
-      return "\n";
+      return '\n';
     case 't':
-      return "\t";
+      return '\t';
     case '\\':
-      return "\\";
+      return '\\';
     case '"':
-      return "\"";
+      return '\"';
     case '\'':
-      return "\'";
-    // You can add more cases here based on the escape sequences your language
-    // supports.
+      return '\'';
+    // Add other cases as needed
     default:
-      return std::string(1, escapedChar);
+      return escapedChar;
     }
-  }
-
-  bool isOperatorOrPunctuatorStart(char ch) {
-    static const std::string opStartChars = "+-*/%=&|<>!.,;()[]{}";
-    return opStartChars.find(ch) != std::string::npos;
   }
 
   Token operatorOrPunctuator() {
+    char currentChar = source[position];
     size_t start = position++;
-    // Extend this to handle two or more character operators
-    if (position < source.length()) {
-      std::string potentialOperator = source.substr(start, 2);
-      if (isMultiCharacterOperator(potentialOperator)) {
-        position++;
-        return {TokenType::Operator, potentialOperator, line};
-      }
-    }
 
-    return {TokenType::Operator, source.substr(start, 1), line};
+    if (isPunctuator(currentChar)) {
+      return {TokenType::Punctuator, std::string(1, currentChar), line};
+    } else {
+      // Handle multi-character operators
+      if (position < source.length()) {
+        std::string potentialOperator = source.substr(start, 2);
+        if (isMultiCharacterOperator(potentialOperator)) {
+          position++;
+          return {TokenType::Operator, potentialOperator, line};
+        }
+      }
+      return {TokenType::Operator, std::string(1, currentChar), line};
+    }
+  }
+
+  bool isPunctuator(char ch) {
+    static const std::string punctuators = ";,(){}[]";
+    return punctuators.find(ch) != std::string::npos;
   }
 
   bool isMultiCharacterOperator(const std::string &op) {
     static const std::set<std::string> multiCharOperators = {
         "&&", "||", "==", "!=", "<=", ">=", "+=", "-=", "*=", "/="};
     return multiCharOperators.find(op) != multiCharOperators.end();
-  }
-
-  bool isUnknownCharacter(char ch) {
-    // Include all valid characters for identifiers, numbers, operators, string
-    // and template literals, and whitespace
-    static const std::string validChars =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        "+-*/%=&|<>!.,;()[]{} \t\n" // operators and punctuators
-        "'\"\\`"; // characters for string and template literals including
-                  // escape character and backticks
-
-    return validChars.find(ch) == std::string::npos;
-  }
-
-  Token characterLiteral() {
-    position++; // Skip opening quote
-    char charValue = source[position++];
-    position++; // Skip closing quote
-
-    return {TokenType::Char, std::string(1, charValue), line};
   }
 };
