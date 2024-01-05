@@ -60,6 +60,11 @@
     "span": "cpp",
     "sstream": "cpp",
     "stop_token": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "any": "cpp",
+    "condition_variable": "cpp",
+    "optional": "cpp",
+    "mutex": "cpp",
+    "variant": "cpp"
   }
 }
