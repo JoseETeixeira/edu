@@ -1,5 +1,3 @@
-Creating feature specifications involves detailing how each feature will work, its syntax, and its interaction with other parts of the language. Here are the feature specifications for your new programming language, based on the attributes you've specified:
-
 ### 1. Automated Imports
 
 - **Description**: Automatically import necessary modules when their functions or classes are used.

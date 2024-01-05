@@ -42,6 +42,12 @@ public:
   virtual void visit(AsyncFunctionNode &node) = 0;
   virtual void visit(AwaitExpressionNode &node) = 0;
   virtual void visit(InterfaceNode &node) = 0;
+  virtual void visit(NullReferenceNode &node) = 0;
+  virtual void visit(ConsoleLogNode &node) = 0;
+  virtual void visit(InputStatementNode &node) = 0;
+  virtual void visit(VariableExpressionNode &node) = 0;
+  virtual void visit(AndExpressionNode &node) = 0;
+  virtual void visit(EqualityExpressionNode &node) = 0;
 };
 
 class ASTNode {
@@ -353,6 +359,63 @@ public:
   std::unique_ptr<StatementNode> catchBlock;
 };
 
+class EqualityExpressionNode : public ExpressionNode {
+public:
+  EqualityExpressionNode(std::unique_ptr<ExpressionNode> left,
+                         const std::string &op,
+                         std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, e.g., "==" or "!="
+  std::unique_ptr<ExpressionNode> right;
+
+private:
+};
+
+class OrExpressionNode : public ExpressionNode {
+public:
+  OrExpressionNode(std::unique_ptr<ExpressionNode> left, const std::string &op,
+                   std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, e.g., "||"
+  std::unique_ptr<ExpressionNode> right;
+};
+
+class AndExpressionNode : public ExpressionNode {
+public:
+  AndExpressionNode(std::unique_ptr<ExpressionNode> left, const std::string &op,
+                    std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, e.g., "&&"
+  std::unique_ptr<ExpressionNode> right;
+
+private:
+};
+
+class VariableExpressionNode : public ExpressionNode {
+public:
+  VariableExpressionNode(const std::string &name, int line)
+      : ExpressionNode(line), name(name) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::string name; // The name of the variable
+};
+
 class AsyncFunctionNode : public FunctionNode {
 public:
   AsyncFunctionNode(const std::string &name, int line)
@@ -376,4 +439,26 @@ public:
 
   std::string name;
   std::vector<std::unique_ptr<ASTNode>> members;
+};
+
+class NullReferenceNode : public ExpressionNode {
+public:
+  NullReferenceNode(int line) : ExpressionNode(line) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+};
+
+class ConsoleLogNode : public StatementNode {
+public:
+  ConsoleLogNode(int line) : StatementNode(line) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> expression;
+};
+
+class InputStatementNode : public StatementNode {
+public:
+  InputStatementNode(int line) : StatementNode(line) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<VariableDeclarationNode> variable;
 };
