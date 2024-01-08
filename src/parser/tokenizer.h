@@ -12,6 +12,7 @@ enum class TokenType {
   Punctuator,
   EndOfFile,
   Unknown,
+  Declaration,
   Char
 };
 
@@ -164,10 +165,24 @@ private:
     }
 
     std::string value = source.substr(start, position - start);
+
+    if (isDeclarationKeyword(value)) {
+      return {TokenType::Declaration, value, line};
+    }
+
     TokenType type =
         isKeyword(value) ? TokenType::Keyword : TokenType::Identifier;
 
     return {type, value, line};
+  }
+
+  bool isDeclarationKeyword(const std::string &value) {
+    static const std::set<std::string> declarationKeywords = {
+        "class", "function", "const", "interface",
+        "async" // Add other declaration keywords
+    };
+
+    return declarationKeywords.find(value) != declarationKeywords.end();
   }
 
   Token numericLiteral() {

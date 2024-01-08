@@ -131,7 +131,7 @@ void Parser::error(const std::string &message) {
 // Main Parsing Methods
 
 std::unique_ptr<ASTNode> Parser::parseDeclaration() {
-  if (match(TokenType::Keyword)) {
+  if (match(TokenType::Declaration)) {
     std::string keyword = previous().value;
 
     if (keyword == "class") {
@@ -142,24 +142,15 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
       return parseVariableDeclaration();
     } else if (keyword == "interface") {
       return parseInterfaceDeclaration();
-    } else if (keyword == "import") {
-      return parseImportStatement();
-    } else if (keyword == "null") {
-      return parseNullReference();
-    } else if (keyword == "console.log") {
-      return parseConsoleLog();
-    } else if (keyword == "input") {
-      return parseInputStatement();
-    } else if (isType(keyword)) {
-      return parseVariableDeclaration(); // Default to variable declaration for
-                                         // unrecognized keywords
     }
-    // Handle other keywords or declarations based on your language's syntax.
   }
   return parseStatement();
 }
 
 std::unique_ptr<ASTNode> Parser::parseStatement() {
+  if (match(TokenType::Punctuator) && previous().value == "{") {
+    return parseBlockStatement();
+  }
   if (match(TokenType::Keyword)) {
     std::string keyword = previous().value;
 
