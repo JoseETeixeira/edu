@@ -54,6 +54,8 @@ public:
   virtual void visit(MultiplicationExpressionNode &node) = 0;
   virtual void visit(DivisionExpressionNode &node) = 0;
   virtual void visit(CharLiteralNode &node) = 0;
+  virtual void visit(PropertyDeclarationNode &node) = 0;
+  virtual void visit(ConstructorNode &node) = 0;
 };
 
 class ASTNode {
@@ -552,4 +554,33 @@ public:
   void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   char value; // The character value of the literal.
+};
+
+class PropertyDeclarationNode : public StatementNode {
+public:
+  PropertyDeclarationNode(const std::string &name,
+                          std::unique_ptr<TypeNode> type,
+                          std::unique_ptr<ExpressionNode> initializer, int line)
+      : StatementNode(line), name(name), type(std::move(type)),
+        initializer(std::move(initializer)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::string name;
+  std::unique_ptr<TypeNode> type;
+  std::unique_ptr<ExpressionNode> initializer;
+};
+
+class ConstructorNode : public ASTNode {
+public:
+  ConstructorNode(
+      std::vector<std::unique_ptr<FunctionParameterNode>> parameters,
+      std::unique_ptr<BlockStatementNode> body, int line)
+      : ASTNode(line), parameters(std::move(parameters)),
+        body(std::move(body)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+  std::unique_ptr<BlockStatementNode> body;
 };

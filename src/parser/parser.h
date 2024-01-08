@@ -36,12 +36,6 @@ private:
   std::unique_ptr<ASTNode> parseStatement();
   std::unique_ptr<ASTNode> parseExpression();
 
-  std::unique_ptr<NullReferenceNode> Parser::parseNullReference();
-
-  std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog();
-
-  std::unique_ptr<InputStatementNode> Parser::parseInputStatement();
-
   // Declaration Parsing
   std::unique_ptr<ClassNode> parseClassDeclaration();
   std::unique_ptr<FunctionNode> parseFunctionDeclaration();
@@ -49,6 +43,12 @@ private:
   std::unique_ptr<InterfaceNode> parseInterfaceDeclaration();
 
   // Statement Parsing
+  std::unique_ptr<ASTNode> parseClassMember();
+  std::unique_ptr<ASTNode> parsePropertyDeclaration();
+  std::unique_ptr<ASTNode> parseConstructorDeclaration();
+  std::unique_ptr<NullReferenceNode> parseNullReference();
+  std::unique_ptr<ConsoleLogNode> parseConsoleLog();
+  std::unique_ptr<InputStatementNode> parseInputStatement();
   std::unique_ptr<BlockStatementNode> parseBlockStatement();
   std::unique_ptr<IfStatementNode> parseIfStatement();
   std::unique_ptr<ForStatementNode> parseForStatement();
@@ -386,4 +386,134 @@ bool Parser::isType(const std::string &keyword) {
       "bool", "char",    "int",    "float", "double",
       "void", "wchar_t", "string", "Error"};
   return validTypes.find(keyword) != validTypes.end();
+}
+
+std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
+  // Ensure the current token is the 'console.log' keyword
+  consume(TokenType::Keyword, "Expected 'console.log'");
+
+  // Parse the expression to be logged
+  auto expression = parseExpression();
+
+  // Consume the semicolon at the end of the console.log statement
+  consume(TokenType::Punctuator, "Expected ';' after console.log statement");
+
+  // Create and return a new ConsoleLogNode
+  return std::make_unique<ConsoleLogNode>(std::move(expression));
+}
+
+std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
+  // Ensure the current token is the 'input' keyword
+  consume(TokenType::Keyword, "Expected 'input'");
+
+  // Optionally, parse a variable declaration if it's part of the input syntax
+  std::unique_ptr<VariableDeclarationNode> variable;
+  if (match(TokenType::Identifier)) {
+    std::string variableName = previous().value;
+    consume(TokenType::Operator,
+            "="); // Assuming the syntax is 'input variableName = input();'
+
+    // Parse the input function call (assuming it's represented as a call)
+    consume(TokenType::Keyword,
+            "input"); // Consuming the actual input keyword again if the syntax
+                      // is like 'input()'
+    consume(TokenType::Punctuator, "(");
+    consume(TokenType::Punctuator, ")");
+
+    variable = std::make_unique<VariableDeclarationNode>(variableName);
+  }
+
+  // Consume the semicolon at the end of the input statement
+  consume(TokenType::Punctuator, "Expected ';' after input statement");
+
+  // Create and return a new InputStatementNode
+  return std::make_unique<InputStatementNode>(std::move(variable));
+}
+
+std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
+  // Ensure we are starting with 'class' keyword
+  consume(TokenType::Keyword, "Expected 'class' keyword");
+
+  // Get the class name
+  std::string className =
+      consume(TokenType::Identifier, "Expected class name").value;
+
+  // Create a new ClassNode with the parsed name
+  auto classNode = std::make_unique<ClassNode>(className, previous().line);
+
+  // Consume the opening brace '{' of the class body
+  consume(TokenType::Punctuator, "Expected '{' after class name");
+
+  // Parse class members until closing brace '}'
+  while (!check(TokenType::Punctuator) && !isAtEnd()) {
+    classNode->members.push_back(parseClassMember());
+  }
+
+  // Consume the closing brace '}'
+  consume(TokenType::Punctuator, "Expected '}' at end of class body");
+
+  return classNode;
+}
+
+std::unique_ptr<ASTNode> Parser::parseClassMember() {
+  // Check if the member is a method
+  if (match(TokenType::Keyword) &&
+      (previous().value == "function" || previous().value == "async")) {
+    return parseFunctionDeclaration();
+  }
+  // Check if the member is a property
+  else if (match(TokenType::Keyword) && isType(previous().value)) {
+    return parsePropertyDeclaration();
+  }
+  // Handle other types of class members
+  // Example: parsing a constructor
+  else if (match(TokenType::Keyword) && previous().value == "constructor") {
+    return parseConstructorDeclaration();
+  }
+
+  throw std::runtime_error("Unsupported class member type");
+}
+
+std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration() {
+  // Assuming properties are declared like variables
+  std::string propertyName =
+      consume(TokenType::Identifier, "Expected property name").value;
+
+  // Optional: Parse property type if it follows the property name
+  std::unique_ptr<TypeNode> propertyType;
+  if (peek().type == TokenType::Identifier) {
+    // Assuming next token is type if it's an identifier
+    propertyType = parseType();
+  }
+
+  // Check for '=' and parse the initializer expression if present
+  std::unique_ptr<ExpressionNode> initializer;
+  if (match(TokenType::Operator) && previous().value == "=") {
+    auto expr = parseExpression(); // Returns std::unique_ptr<ASTNode>
+    initializer = std::unique_ptr<ExpressionNode>(
+        dynamic_cast<ExpressionNode *>(expr.release()));
+    if (!initializer) {
+      error("Expected expression for initializer");
+    }
+  }
+
+  // Consume the semicolon at the end of the property declaration
+  consume(TokenType::Punctuator, "Expected ';' after property declaration");
+
+  // Create and return a property declaration node
+  return std::make_unique<PropertyDeclarationNode>(
+      propertyName, std::move(propertyType), std::move(initializer),
+      previous().line);
+}
+
+std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration() {
+  // Assuming a constructor is like a function but without a return type
+  consume(TokenType::Punctuator, "Expected '(' after 'constructor'");
+  auto parameters = parseParameters();
+  consume(TokenType::Punctuator, "Expected ')' after constructor parameters");
+
+  auto body = parseBlockStatement(); // Parse the constructor's body
+
+  return std::make_unique<ConstructorNode>(std::move(parameters),
+                                           std::move(body));
 }
