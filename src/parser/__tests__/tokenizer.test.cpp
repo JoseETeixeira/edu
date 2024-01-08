@@ -15,11 +15,28 @@ protected:
     tokenizer = new Tokenizer(source);
     return tokenizer->nextToken();
   }
+
+  std::vector<Token> tokenizeSource(const std::string &source) {
+    tokenizer = new Tokenizer(source);
+    std::vector<Token> tokens;
+    Token token;
+    do {
+      token = tokenizer->nextToken();
+      tokens.push_back(token);
+    } while (token.type != TokenType::EndOfFile);
+    return tokens;
+  }
 };
 
 TEST_F(TokenizerTest, IdentifiesKeywords) {
-  Token token = tokenizeSingleToken("class");
+  Token token = tokenizeSingleToken("for");
   EXPECT_EQ(token.type, TokenType::Keyword);
+  EXPECT_EQ(token.value, "for");
+}
+
+TEST_F(TokenizerTest, IdentifiesDeclarations) {
+  Token token = tokenizeSingleToken("class");
+  EXPECT_EQ(token.type, TokenType::Declaration);
   EXPECT_EQ(token.value, "class");
 }
 
@@ -74,4 +91,41 @@ TEST_F(TokenizerTest, HandlesStringsWithEscapeSequences) {
 TEST_F(TokenizerTest, HandlesUnterminatedStrings) {
   Token token = tokenizeSingleToken("\"Unterminated");
   EXPECT_EQ(token.type, TokenType::Unknown);
+}
+
+TEST_F(TokenizerTest, TokenizesComplexSourceCode) {
+  std::string source = R"(
+    import { asyncFunction } from "module-name";
+
+    class MyClass {
+      constructor(int a, float b) {
+        console.log("Constructor");
+      }
+
+      async int asyncMethod() {
+        int result = await asyncFunction();
+        console.log(result);
+      }
+    }
+
+    try {
+      MyClass obj = MyClass(10, 3.14);
+    } catch (Error error) {
+      console.error(error);
+    }
+  )";
+
+  auto tokens = tokenizeSource(source);
+
+  // Example assertions (not exhaustive):
+  EXPECT_EQ(tokens[0].type, TokenType::Keyword);
+  EXPECT_EQ(tokens[1].type, TokenType::Punctuator);
+  EXPECT_EQ(tokens[2].type, TokenType::Identifier); // asyncFunction
+
+  // Check for specific keywords
+  auto classToken =
+      std::find_if(tokens.begin(), tokens.end(),
+                   [](const Token &t) { return t.value == "class"; });
+  EXPECT_NE(classToken, tokens.end());
+  EXPECT_EQ(classToken->type, TokenType::Declaration);
 }

@@ -75,7 +75,9 @@ private:
         "wchar_t",  "string", "Error",   "class", "interface", "function",
         "const",    "export", "extends", "async", "await",     "null",
         "true",     "false",  "try",     "catch", "import",    "from",
-        "template", "copy"
+        "template", "copy",   "for",     "while", "if",        "else",
+        "switch",   "case",   "default", "break", "continue",  "return",
+        "try",      "catch",  "throw"
         // Add other keywords specific to your language
     };
 
@@ -170,10 +172,11 @@ private:
       return {TokenType::Declaration, value, line};
     }
 
-    TokenType type =
-        isKeyword(value) ? TokenType::Keyword : TokenType::Identifier;
+    if (isKeyword(value)) {
+      return {TokenType::Keyword, value, line};
+    }
 
-    return {type, value, line};
+    return {TokenType::Identifier, value, line};
   }
 
   bool isDeclarationKeyword(const std::string &value) {
