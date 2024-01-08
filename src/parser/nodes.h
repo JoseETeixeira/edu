@@ -48,6 +48,12 @@ public:
   virtual void visit(VariableExpressionNode &node) = 0;
   virtual void visit(AndExpressionNode &node) = 0;
   virtual void visit(EqualityExpressionNode &node) = 0;
+  virtual void visit(ComparisonExpressionNode &node) = 0;
+  virtual void visit(AdditionExpressionNode &node) = 0;
+  virtual void visit(SubtractionExpressionNode &node) = 0;
+  virtual void visit(MultiplicationExpressionNode &node) = 0;
+  virtual void visit(DivisionExpressionNode &node) = 0;
+  virtual void visit(CharLiteralNode &node) = 0;
 };
 
 class ASTNode {
@@ -461,4 +467,89 @@ public:
   void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<VariableDeclarationNode> variable;
+};
+
+class ComparisonExpressionNode : public ExpressionNode {
+public:
+  ComparisonExpressionNode(std::unique_ptr<ExpressionNode> left,
+                           const std::string &op,
+                           std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, e.g., "<", ">", "<=", ">="
+  std::unique_ptr<ExpressionNode> right;
+};
+
+class AdditionExpressionNode : public ExpressionNode {
+public:
+  AdditionExpressionNode(std::unique_ptr<ExpressionNode> left,
+                         const std::string &op,
+                         std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, expected to be "+"
+  std::unique_ptr<ExpressionNode> right;
+};
+
+class SubtractionExpressionNode : public ExpressionNode {
+public:
+  SubtractionExpressionNode(std::unique_ptr<ExpressionNode> left,
+                            const std::string &op,
+                            std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, expected to be "-"
+  std::unique_ptr<ExpressionNode> right;
+};
+
+class MultiplicationExpressionNode : public ExpressionNode {
+public:
+  MultiplicationExpressionNode(std::unique_ptr<ExpressionNode> left,
+                               const std::string &op,
+                               std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, expected to be "*"
+  std::unique_ptr<ExpressionNode> right;
+};
+
+class DivisionExpressionNode : public ExpressionNode {
+public:
+  DivisionExpressionNode(std::unique_ptr<ExpressionNode> left,
+                         const std::string &op,
+                         std::unique_ptr<ExpressionNode> right, int line)
+      : ExpressionNode(line), left(std::move(left)), op(op),
+        right(std::move(right)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<ExpressionNode> left;
+  std::string op; // Operator, expected to be "/"
+  std::unique_ptr<ExpressionNode> right;
+};
+class CharLiteralNode : public ExpressionNode {
+public:
+  // Constructor: takes the character value and the line number.
+  CharLiteralNode(char value, int line) : ExpressionNode(line), value(value) {}
+
+  // Accept method for the visitor pattern.
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  char value; // The character value of the literal.
 };

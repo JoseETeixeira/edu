@@ -272,6 +272,114 @@ std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
                // expression.
 }
 
+std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
+  auto left =
+      parseAdditionExpression(); // Start with the next level of precedence.
+
+  while (match(TokenType::Operator) &&
+         (previous().value == "<" || previous().value == ">" ||
+          previous().value == "<=" || previous().value == ">=")) {
+    std::string operatorValue = previous().value;
+    auto right =
+        parseAdditionExpression(); // Recursively parse the right operand.
+    left = std::make_unique<ComparisonExpressionNode>(
+        std::move(left), operatorValue, std::move(right));
+  }
+
+  return left; // If no comparison operator is found, just return the left
+               // operand expression.
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression() {
+  auto left = parseMultiplicationExpression(); // Start with the next level of
+                                               // precedence.
+
+  while (true) {
+    if (match(TokenType::Operator) && previous().value == "+") {
+      auto right = parseMultiplicationExpression(); // Parse the right operand.
+      left = std::make_unique<AdditionExpressionNode>(std::move(left), "+",
+                                                      std::move(right));
+    } else if (match(TokenType::Operator) && previous().value == "-") {
+      auto right = parseMultiplicationExpression(); // Parse the right operand.
+      left = std::make_unique<SubtractionExpressionNode>(std::move(left), "-",
+                                                         std::move(right));
+    } else {
+      break; // No more addition or subtraction operators.
+    }
+  }
+
+  return left; // Return the built expression node.
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
+  auto left =
+      parseUnaryExpression(); // Start with the next level of precedence.
+
+  while (true) {
+    if (match(TokenType::Operator) && previous().value == "*") {
+      auto right = parseUnaryExpression(); // Parse the right operand.
+      left = std::make_unique<MultiplicationExpressionNode>(
+          std::move(left), "*", std::move(right));
+    } else if (match(TokenType::Operator) && previous().value == "/") {
+      auto right = parseUnaryExpression(); // Parse the right operand.
+      left = std::make_unique<DivisionExpressionNode>(std::move(left), "/",
+                                                      std::move(right));
+    } else {
+      break; // No more multiplication or division operators.
+    }
+  }
+
+  return left; // Return the built expression node.
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
+  // Check for unary operators
+  if (match(TokenType::Operator) &&
+      (peek().value == "-" || peek().value == "!")) {
+    std::string operatorValue = previous().value; // Get the unary operator
+    auto operand = parseUnaryExpression(); // Recursively parse the operand
+    return std::make_unique<UnaryExpressionNode>(operatorValue,
+                                                 std::move(operand));
+  }
+
+  // If no unary operator is found, parse the primary expression
+  return parsePrimaryExpression();
+}
+
+std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
+  if (match(TokenType::Number)) {
+    return std::make_unique<NumberLiteralNode>(previous().value);
+  } else if (match(TokenType::String)) {
+    return std::make_unique<StringLiteralNode>(previous().value);
+  } else if (match(TokenType::Identifier)) {
+    return std::make_unique<VariableExpressionNode>(previous().value);
+  } else if (match(TokenType::Char)) {
+    return std::make_unique<CharLiteralNode>(previous().value);
+  } else if (match(TokenType::Punctuator) && previous().value == "(") {
+    auto expr = parseExpression(); // Returns std::unique_ptr<ASTNode>
+    consume(TokenType::Punctuator, ")");
+
+    // Downcast from ASTNode to ExpressionNode
+    return std::unique_ptr<ExpressionNode>(
+        static_cast<ExpressionNode *>(expr.release()));
+  } else {
+    throw std::runtime_error("Unexpected token in primary expression");
+  }
+}
+
+std::unique_ptr<NullReferenceNode> Parser::parseNullReference() {
+  // Ensure that the current token is 'null'
+  if (!match(TokenType::Keyword) || previous().value != "null") {
+    error("Expected 'null'");
+  }
+
+  // Create a NullReferenceNode
+  auto nullNode = std::make_unique<NullReferenceNode>(previous().line);
+
+  // Return the created null reference node
+  return nullNode;
+}
+
 bool Parser::isType(const std::string &keyword) {
   // Check if the keyword is a valid type
   static const std::set<std::string> validTypes = {
