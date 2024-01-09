@@ -13,6 +13,7 @@ public:
 
 private:
   std::set<std::string> declaredClasses;
+  std::set<std::string> declaredInterfaces;
 
   const std::vector<Token> &tokens;
   int current;
@@ -90,8 +91,7 @@ private:
   // Utility Parsing Methods
   std::unique_ptr<TypeNode> parseType();
   std::vector<std::unique_ptr<FunctionParameterNode>> parseParameters();
-  std::unique_ptr<AwaitExpressionNode>
-  parseAwaitExpression(); // NOT USED ANYWHERE
+  std::unique_ptr<AwaitExpressionNode> parseAwaitExpression();
   std::unique_ptr<CaseClauseNode> parseCaseClause();
   std::unique_ptr<StatementNode> parseExpressionStatement();
 };
@@ -200,6 +200,8 @@ std::unique_ptr<ASTNode> Parser::parseExpression() {
     return parseObjectLiteral();
   } else if (check(TokenType::Keyword, "function")) {
     return parseAnonymousFunction();
+  } else if (match(TokenType::Keyword, "await")) {
+    return parseAwaitExpression();
   } else {
     return parseAssignmentExpression();
   }
@@ -627,6 +629,9 @@ std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
   // Get the interface name
   std::string interfaceName =
       consume(TokenType::Identifier, "Expected interface name", "").value;
+
+  // Add the class name to declaredClasses
+  declaredInterfaces.insert(interfaceName);
 
   // Create a new InterfaceNode with the parsed name
   auto interfaceNode = std::make_unique<InterfaceNode>(interfaceName);
@@ -1165,7 +1170,80 @@ bool Parser::isClassName(const std::string &name) {
 }
 
 bool Parser::isInterfaceName(const std::string &name) {
-  // Implement logic to check if 'name' is a valid interface name
-  // Similar to isClassName, this could involve checking against known
-  // interfaces
+  return declaredInterfaces.find(name) != declaredInterfaces.end();
+}
+
+std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters() {
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+
+  consume(TokenType::Punctuator, "(",
+          "Expected '(' at the start of parameters");
+
+  if (!check(TokenType::Punctuator, ")")) {
+    do {
+      // Parse the type of the parameter
+      auto type = parseType();
+
+      // Parse the name of the parameter
+      std::string paramName =
+          consume(TokenType::Identifier, "", "Expected parameter name").value;
+
+      // Create a FunctionParameterNode and add it to the parameters vector
+      parameters.push_back(
+          std::make_unique<FunctionParameterNode>(std::move(type), paramName));
+    } while (match(TokenType::Punctuator, ","));
+  }
+
+  consume(TokenType::Punctuator, ")", "Expected ')' after parameters");
+
+  return parameters;
+}
+
+std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression() {
+  consume(TokenType::Keyword, "await", "Expected 'await'");
+
+  auto expression = parseExpression(); // Parse the expression following 'await'
+
+  return std::make_unique<AwaitExpressionNode>(std::move(expression));
+}
+
+std::unique_ptr<CaseClauseNode> Parser::parseCaseClause() {
+  std::unique_ptr<ExpressionNode> caseExpression;
+  bool isDefault = false;
+  int line = peek().line;
+
+  if (match(TokenType::Keyword, "case")) {
+    auto expr = parseExpression();
+    caseExpression = std::unique_ptr<ExpressionNode>(
+        dynamic_cast<ExpressionNode *>(expr.release()));
+    if (!caseExpression) {
+      throw std::runtime_error("Expected expression after 'case'");
+    }
+  } else if (match(TokenType::Keyword, "default")) {
+    isDefault = true;
+  } else {
+    throw std::runtime_error("Expected 'case' or 'default' keyword");
+  }
+
+  consume(TokenType::Punctuator, ":", "Expected ':' after case value");
+
+  std::vector<std::unique_ptr<StatementNode>> statements;
+  while (!check(TokenType::Keyword, "case") &&
+         !check(TokenType::Keyword, "default") && !isAtEnd()) {
+    auto astNode = parseStatement();
+    StatementNode *statementNode = dynamic_cast<StatementNode *>(astNode.get());
+    if (statementNode) {
+      statements.push_back(std::unique_ptr<StatementNode>(statementNode));
+      astNode.release(); // Release ownership from the original unique_ptr
+    } else {
+      throw std::runtime_error("Expected a statement node");
+    }
+  }
+
+  if (isDefault) {
+    return std::make_unique<CaseClauseNode>(std::move(statements), line);
+  } else {
+    return std::make_unique<CaseClauseNode>(std::move(caseExpression),
+                                            std::move(statements), line);
+  }
 }

@@ -185,11 +185,24 @@ public:
 
 class CaseClauseNode : public ASTNode {
 public:
-  CaseClauseNode(int line) : ASTNode(line) {}
+  // Constructor for a case clause with an expression
+  CaseClauseNode(std::unique_ptr<ExpressionNode> caseExpression,
+                 std::vector<std::unique_ptr<StatementNode>> statements,
+                 int line)
+      : ASTNode(line), caseExpression(std::move(caseExpression)),
+        statements(std::move(statements)), isDefault(false) {}
+
+  // Constructor for a default case clause
+  CaseClauseNode(std::vector<std::unique_ptr<StatementNode>> statements,
+                 int line)
+      : ASTNode(line), caseExpression(nullptr),
+        statements(std::move(statements)), isDefault(true) {}
+
   void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
-  std::unique_ptr<ExpressionNode> expression; // null for 'default' case
+  std::unique_ptr<ExpressionNode> caseExpression;
   std::vector<std::unique_ptr<StatementNode>> statements;
+  bool isDefault;
 };
 
 class SwitchStatementNode : public StatementNode {
