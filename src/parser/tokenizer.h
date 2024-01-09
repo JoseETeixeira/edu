@@ -13,7 +13,7 @@ enum class TokenType {
   EndOfFile,
   Unknown,
   Declaration,
-  Char
+  Character
 };
 
 struct Token {
@@ -108,7 +108,7 @@ private:
     position++; // Skip closing quote
 
     // Convert charValue to a string
-    return {TokenType::Char, std::string(1, charValue), line};
+    return {TokenType::Character, std::string(1, charValue), line};
   }
 
   bool isOperatorOrPunctuatorStart(char ch) {

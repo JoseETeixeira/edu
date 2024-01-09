@@ -75,7 +75,7 @@ private:
   std::unique_ptr<ExpressionNode> parsePrimaryExpression();
 
   // Primary Expressions
-  std::unique_ptr<LiteralNode> parseLiteral(); // NOT CALLED ANYWHERE
+  std::unique_ptr<ExpressionNode> parseLiteral(); // NOT CALLED ANYWHERE
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
   std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
@@ -85,12 +85,16 @@ private:
 
   // Utility Parsing Methods
   std::unique_ptr<TypeNode> parseType();
-  std::unique_ptr<FunctionParameterNode> parseFunctionParameter();
-  std::vector<std::unique_ptr<ExpressionNode>> parseArguments();
+  std::unique_ptr<FunctionParameterNode>
+  parseFunctionParameter(); // NOT USED ANYWHERE
+  std::vector<std::unique_ptr<ExpressionNode>>
+  parseArguments(); // NOT USED ANYWHERE
   std::vector<std::unique_ptr<FunctionParameterNode>> parseParameters();
-  std::vector<std::unique_ptr<CaseClauseNode>> parseCaseClauses();
+  std::vector<std::unique_ptr<CaseClauseNode>>
+  parseCaseClauses(); // NOT USED ANYWHERE
 
-  std::unique_ptr<AwaitExpressionNode> parseAwaitExpression();
+  std::unique_ptr<AwaitExpressionNode>
+  parseAwaitExpression(); // NOT USED ANYWHERE
   std::unique_ptr<CaseClauseNode> parseCaseClause();
   std::unique_ptr<StatementNode> parseExpressionStatement();
 };
@@ -367,18 +371,16 @@ std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
 }
 
 std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
-  if (match(TokenType::Number, "")) {
-    return std::make_unique<NumberLiteralNode>(previous().value);
-  } else if (match(TokenType::String, "")) {
-    return std::make_unique<StringLiteralNode>(previous().value);
+  if (match(TokenType::Number, "") || match(TokenType::String, "") ||
+      match(TokenType::Keyword, "true") || match(TokenType::Keyword, "false") ||
+      match(TokenType::Keyword, "null")) {
+    return parseLiteral();
   } else if (match(TokenType::Identifier, "")) {
     std::string identifier = previous().value;
 
     if (match(TokenType::Punctuator, "(")) {
-      // It's a function call
       return parseCallExpression(identifier);
     } else if (match(TokenType::Punctuator, ".")) {
-      // It's a member access
       return parseMemberAccessExpression(identifier);
     }
 
@@ -1061,4 +1063,36 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
 
   // Wrap the FunctionNode in an ExpressionNode if necessary
   return std::make_unique<FunctionExpressionNode>(std::move(functionNode));
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
+  if (match(TokenType::Number, "")) {
+    // For numeric literals (integers, floats, doubles)
+    std::string value = previous().value;
+    if (value.find('.') != std::string::npos) {
+      // Contains a decimal point, treat as a floating point or double
+      return std::make_unique<FloatingPointLiteralNode>(value);
+    } else {
+      // No decimal point, treat as an integer
+      return std::make_unique<IntegerLiteralNode>(value);
+    }
+  } else if (match(TokenType::String, "")) {
+    // For string literals
+    return std::make_unique<StringLiteralNode>(previous().value);
+  } else if (match(TokenType::Keyword, "true") ||
+             match(TokenType::Keyword, "false")) {
+    // For boolean literals
+    bool value = previous().value == "true";
+    return std::make_unique<BooleanLiteralNode>(value);
+  } else if (match(TokenType::Keyword, "null")) {
+    // For null literals
+    return std::make_unique<NullLiteralNode>();
+  } else if (match(TokenType::Character, "")) {
+    // For character literals
+    char value = previous().value[0];
+    return std::make_unique<CharacterLiteralNode>(value);
+  }
+  // Add more cases as needed for other types of literals
+
+  throw std::runtime_error("Expected literal");
 }

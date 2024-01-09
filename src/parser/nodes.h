@@ -59,6 +59,9 @@ public:
   virtual void visit(ExpressionStatementNode &node) = 0;
   virtual void visit(ErrorTypeNode &node) = 0;
   virtual void visit(FunctionExpressionNode &node) = 0;
+  virtual void visit(FloatingPointLiteralNode &node) = 0;
+  virtual void visit(IntegerLiteralNode &node) = 0;
+  virtual void visit(CharacterLiteralNode &node) = 0;
 };
 
 class ASTNode {
@@ -620,4 +623,30 @@ public:
   void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<FunctionNode> function;
+};
+class FloatingPointLiteralNode : public ExpressionNode {
+public:
+  FloatingPointLiteralNode(const std::string &value, int line)
+      : ExpressionNode(line), value(std::stof(value)) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  float value;
+};
+
+class IntegerLiteralNode : public ExpressionNode {
+public:
+  IntegerLiteralNode(const std::string &value, int line)
+      : ExpressionNode(line), value(std::stoi(value)) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  int value;
+};
+
+class CharacterLiteralNode : public ExpressionNode {
+public:
+  CharacterLiteralNode(char value, int line)
+      : ExpressionNode(line), value(value) {}
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  char value;
 };
