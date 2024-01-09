@@ -6,7 +6,7 @@
 
 class Parser {
 public:
-  explicit Parser(const std::vector<Token> &tokens)
+  explicit Parser::Parser(const std::vector<Token> &tokens)
       : tokens(tokens), current(0) {}
 
   std::unique_ptr<ProgramNode> parse();
@@ -111,6 +111,22 @@ Token Parser::consume(TokenType type, const std::string &expectedValue,
   } else {
     throw std::runtime_error(errorMessage);
   }
+}
+
+std::unique_ptr<ProgramNode> Parser::parse() {
+  auto program =
+      std::make_unique<ProgramNode>(0); // Assuming 0 as the starting line
+
+  while (!isAtEnd()) {
+    try {
+      program->children.push_back(parseDeclaration());
+    } catch (const std::runtime_error &e) {
+      throw std::runtime_error(e.what() + " at line " +
+                               std::to_string(peek().line));
+    }
+  }
+
+  return program;
 }
 
 bool Parser::check(TokenType type, const std::string &expectedValue) const {
