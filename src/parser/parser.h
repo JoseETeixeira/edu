@@ -12,6 +12,8 @@ public:
   std::unique_ptr<ProgramNode> parse();
 
 private:
+  std::set<std::string> declaredClasses;
+
   const std::vector<Token> &tokens;
   int current;
 
@@ -31,6 +33,8 @@ private:
   bool isAtEnd() const;
   void error(const std::string &message);
   bool isType(const std::string &keyword);
+  bool isClassName(const std::string &name);
+  bool isInterfaceName(const std::string &name);
 
   // Main Parsing Methods
   std::unique_ptr<ASTNode> parseDeclaration();
@@ -454,17 +458,15 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
   return std::make_unique<InputStatementNode>(std::move(variable));
 }
 std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
-  // Ensure we are starting with the 'class' keyword
   consume(TokenType::Keyword, "class", "Expected 'class' keyword");
 
-  // Get the class name token
   Token classNameToken =
       consume(TokenType::Identifier, "", "Expected class name");
-
-  // Extract the class name from the token
   std::string className = classNameToken.value;
 
-  // Create a new ClassNode with the parsed name
+  // Add the class name to declaredClasses
+  declaredClasses.insert(className);
+
   auto classNode = std::make_unique<ClassNode>(className, classNameToken.line);
 
   // Consume the opening brace '{' of the class body
@@ -1110,4 +1112,60 @@ std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral() {
           "Expected ']' at the end of array literal");
 
   return std::make_unique<ArrayLiteralNode>(std::move(elements));
+}
+
+std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
+  consume(TokenType::Punctuator, "{",
+          "Expected '{' at the start of object literal");
+
+  std::vector<std::pair<std::string, std::unique_ptr<ExpressionNode>>>
+      properties;
+  if (!check(TokenType::Punctuator, "}")) {
+    do {
+      // Parse the key
+      std::string key;
+      if (match(TokenType::String, "") || match(TokenType::Identifier, "")) {
+        key = previous().value;
+      } else {
+        throw std::runtime_error("Expected string or identifier as object key");
+      }
+
+      // Parse the colon separator
+      consume(TokenType::Punctuator, ":", "Expected ':' after object key");
+
+      // Parse the value (an expression)
+      auto value = parseExpression();
+
+      properties.emplace_back(key, std::move(value));
+    } while (match(TokenType::Punctuator, ","));
+  }
+
+  consume(TokenType::Punctuator, "}",
+          "Expected '}' at the end of object literal");
+
+  return std::make_unique<ObjectLiteralNode>(std::move(properties));
+}
+
+std::unique_ptr<TypeNode> Parser::parseType() {
+  Token typeToken = consume(TokenType::Identifier, "", "Expected a type");
+
+  std::string typeName = typeToken.value;
+  if (typeName == "bool" || typeName == "char" || typeName == "int" ||
+      typeName == "float" || typeName == "double" || typeName == "void" ||
+      typeName == "wchar_t" || typeName == "string" || typeName == "Error" ||
+      isClassName(typeName) || isInterfaceName(typeName)) {
+    return std::make_unique<TypeNode>(typeName);
+  } else {
+    throw std::runtime_error("Unknown type: " + typeName);
+  }
+}
+
+bool Parser::isClassName(const std::string &name) {
+  return declaredClasses.find(name) != declaredClasses.end();
+}
+
+bool Parser::isInterfaceName(const std::string &name) {
+  // Implement logic to check if 'name' is a valid interface name
+  // Similar to isClassName, this could involve checking against known
+  // interfaces
 }
