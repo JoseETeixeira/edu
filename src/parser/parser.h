@@ -59,7 +59,7 @@ private:
   std::unique_ptr<BreakStatementNode> parseBreakStatement();
   std::unique_ptr<ContinueStatementNode> parseContinueStatement();
   std::unique_ptr<SwitchStatementNode> parseSwitchStatement();
-  std::unique_ptr<TryCatchNode> parseTryCatchStatement(); // FINISHED HERE
+  std::unique_ptr<TryCatchNode> parseTryCatchStatement();
   std::unique_ptr<ExportNode> parseExportStatement();
   std::unique_ptr<ImportNode> parseImportStatement();
 
@@ -75,12 +75,13 @@ private:
   std::unique_ptr<ExpressionNode> parsePrimaryExpression();
 
   // Primary Expressions
-  std::unique_ptr<LiteralNode> parseLiteral();
+  std::unique_ptr<LiteralNode> parseLiteral(); // FINISHED HERE
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
   std::unique_ptr<FunctionNode> parseAnonymousFunction();
-  std::unique_ptr<CallExpressionNode> parseCallExpression();
-  std::unique_ptr<MemberAccessExpressionNode> parseMemberAccessExpression();
+  std::unique_ptr<CallExpressionNode> parseCallExpression(std::string callee);
+  std::unique_ptr<MemberAccessExpressionNode>
+  parseMemberAccessExpression(std::string object);
 
   // Utility Parsing Methods
   std::unique_ptr<TypeNode> parseType();
@@ -192,7 +193,15 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseExpression() {
-  return parseAssignmentExpression();
+  if (check(TokenType::Punctuator, "[")) {
+    return parseArrayLiteral();
+  } else if (check(TokenType::Punctuator, "{")) {
+    return parseObjectLiteral();
+  } else if (check(TokenType::Keyword, "function")) {
+    return parseAnonymousFunction();
+  } else {
+    return parseAssignmentExpression();
+  }
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
@@ -328,6 +337,23 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
+
+  if (check(TokenType::Identifier, "")) {
+    std::string identifier =
+        consume(TokenType::Identifier, "", "Expected identifier").value;
+
+    if (match(TokenType::Punctuator, "(")) {
+      // It's a function call
+      return parseCallExpression(identifier);
+    } else if (match(TokenType::Punctuator, ".")) {
+      // It's a member access
+      return parseMemberAccessExpression(identifier);
+    }
+
+    // If it's just an identifier (not a function call or member access)
+    return std::make_unique<VariableExpressionNode>(identifier);
+  }
+
   // Check for unary operators
   if (match(TokenType::Operator, "-") || match(TokenType::Operator, "!")) {
     std::string operatorValue = previous().value; // Get the unary operator
@@ -911,4 +937,93 @@ std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
   // Create and return the try-catch statement node
   return std::make_unique<TryCatchNode>(
       std::move(tryBlock), std::move(errorObject), std::move(catchBlock));
+}
+
+std::unique_ptr<ExportNode> Parser::parseExportStatement() {
+  // Consume the 'export' keyword
+  consume(TokenType::Keyword, "export",
+          "Expected 'export' keyword in export statement");
+
+  // Determine what is being exported: class, function, variable, interface,
+  // template, or async function
+  std::unique_ptr<ASTNode> exportItem;
+
+  if (peek().type == TokenType::Keyword) {
+    const std::string &nextTokenValue = peek().value;
+    if (nextTokenValue == "class" || nextTokenValue == "function" ||
+        nextTokenValue == "interface" || nextTokenValue == "template" ||
+        nextTokenValue == "async") {
+      // If the next token is a 'class', 'function', 'interface', 'template', or
+      // 'async', parse it accordingly
+      exportItem = parseDeclaration();
+    } else {
+      exportItem = parseVariableDeclaration();
+    }
+  } else {
+    error("Expected a declaration after 'export'");
+  }
+
+  // Ensure that exportItem is not null
+  if (!exportItem) {
+    error("Expected a valid item to export");
+  }
+
+  // Create and return the export node
+  return std::make_unique<ExportNode>(std::move(exportItem));
+}
+
+std::unique_ptr<ImportNode> Parser::parseImportStatement() {
+  // Consume 'import' keyword
+  consume(TokenType::Keyword, "import", "Expected 'import' keyword");
+
+  // Parse the module name (assuming it's a string literal)
+  std::string moduleName =
+      consume(TokenType::String, "", "Expected module name").value;
+
+  // Optional: Parse imported items
+  std::vector<std::string> imports;
+  if (match(TokenType::Punctuator, "{")) {
+    do {
+      std::string importItem =
+          consume(TokenType::Identifier, "", "Expected import item").value;
+      imports.push_back(importItem);
+    } while (match(TokenType::Punctuator, ","));
+    consume(TokenType::Punctuator, "}", "Expected '}' after import items");
+  }
+
+  // Optional: Consume 'from' keyword
+  if (match(TokenType::Keyword, "from")) {
+    // Consume the actual module name
+    moduleName =
+        consume(TokenType::String, "", "Expected module name after 'from'")
+            .value;
+  }
+
+  // Consume the end of statement token (semicolon)
+  consume(TokenType::Punctuator, ";", "Expected ';' after import statement");
+
+  // Create and return the ImportNode
+  return std::make_unique<ImportNode>(moduleName, imports);
+}
+
+std::unique_ptr<CallExpressionNode>
+Parser::parseCallExpression(std::string callee) {
+  std::vector<std::unique_ptr<ASTNode>> arguments;
+  if (!check(TokenType::Punctuator, ")")) {
+    do {
+      arguments.push_back(parseExpression());
+    } while (match(TokenType::Punctuator, ","));
+  }
+  consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
+  return std::make_unique<CallExpressionNode>(std::move(callee),
+                                              std::move(arguments));
+}
+
+std::unique_ptr<MemberAccessExpressionNode>
+Parser::parseMemberAccessExpression(std::string object) {
+  auto memberName =
+      consume(TokenType::Identifier, "", "Expected member name after '.'")
+          .value;
+  return std::make_unique<MemberAccessExpressionNode>(std::move(object),
+                                                      memberName);
 }
