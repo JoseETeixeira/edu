@@ -75,10 +75,10 @@ private:
   std::unique_ptr<ExpressionNode> parsePrimaryExpression();
 
   // Primary Expressions
-  std::unique_ptr<LiteralNode> parseLiteral(); // FINISHED HERE
+  std::unique_ptr<LiteralNode> parseLiteral(); // NOT CALLED ANYWHERE
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
-  std::unique_ptr<FunctionNode> parseAnonymousFunction();
+  std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
   std::unique_ptr<CallExpressionNode> parseCallExpression(std::string callee);
   std::unique_ptr<MemberAccessExpressionNode>
   parseMemberAccessExpression(std::string object);
@@ -372,17 +372,23 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
   } else if (match(TokenType::String, "")) {
     return std::make_unique<StringLiteralNode>(previous().value);
   } else if (match(TokenType::Identifier, "")) {
-    return std::make_unique<VariableExpressionNode>(previous().value);
-  } else if (match(TokenType::Char, "")) {
-    return std::make_unique<CharLiteralNode>(previous().value);
-  } else if (match(TokenType::Punctuator, "(")) {
-    auto expr = parseExpression(); // Returns std::unique_ptr<ASTNode>
-    consume(TokenType::Punctuator, ")",
-            "Expected ) at the end of the expression");
+    std::string identifier = previous().value;
 
-    // Downcast from ASTNode to ExpressionNode
-    return std::unique_ptr<ExpressionNode>(
-        static_cast<ExpressionNode *>(expr.release()));
+    if (match(TokenType::Punctuator, "(")) {
+      // It's a function call
+      return parseCallExpression(identifier);
+    } else if (match(TokenType::Punctuator, ".")) {
+      // It's a member access
+      return parseMemberAccessExpression(identifier);
+    }
+
+    return std::make_unique<VariableExpressionNode>(identifier);
+  } else if (match(TokenType::Punctuator, "[")) {
+    return parseArrayLiteral();
+  } else if (match(TokenType::Punctuator, "{")) {
+    return parseObjectLiteral();
+  } else if (match(TokenType::Keyword, "function")) {
+    return parseAnonymousFunction();
   } else {
     throw std::runtime_error("Unexpected token in primary expression");
   }
@@ -1026,4 +1032,33 @@ Parser::parseMemberAccessExpression(std::string object) {
           .value;
   return std::make_unique<MemberAccessExpressionNode>(std::move(object),
                                                       memberName);
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
+  // Assuming the 'function' keyword has already been consumed
+
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'function'");
+
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+  if (!check(TokenType::Punctuator, ")")) {
+    do {
+      std::string paramName =
+          consume(TokenType::Identifier, "", "Expected parameter name").value;
+      // If your language supports types for parameters, parse the type here
+      parameters.push_back(std::make_unique<FunctionParameterNode>(paramName));
+    } while (match(TokenType::Punctuator, ","));
+  }
+
+  consume(TokenType::Punctuator, ")", "Expected ')' after parameters");
+
+  auto body = parseBlockStatement(); // Assuming parseBlockStatement() parses a
+                                     // block of statements
+
+  // Create a FunctionNode. Since it's anonymous, we pass an empty string for
+  // the function name
+  auto functionNode = std::make_unique<FunctionNode>("", std::move(parameters),
+                                                     std::move(body));
+
+  // Wrap the FunctionNode in an ExpressionNode if necessary
+  return std::make_unique<FunctionExpressionNode>(std::move(functionNode));
 }

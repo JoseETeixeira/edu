@@ -58,6 +58,7 @@ public:
   virtual void visit(ConstructorNode &node) = 0;
   virtual void visit(ExpressionStatementNode &node) = 0;
   virtual void visit(ErrorTypeNode &node) = 0;
+  virtual void visit(FunctionExpressionNode &node) = 0;
 };
 
 class ASTNode {
@@ -609,4 +610,14 @@ public:
   std::string varName;
   std::string message;
   std::string errorCode;
+};
+
+class FunctionExpressionNode : public ExpressionNode {
+public:
+  FunctionExpressionNode(std::unique_ptr<FunctionNode> function, int line)
+      : ExpressionNode(line), function(std::move(function)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::unique_ptr<FunctionNode> function;
 };
