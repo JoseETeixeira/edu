@@ -50,9 +50,9 @@ private:
   std::unique_ptr<ASTNode> parseInterfaceMember();
   std::unique_ptr<NullReferenceNode> parseNullReference();
   std::unique_ptr<ConsoleLogNode> parseConsoleLog();
-  std::unique_ptr<InputStatementNode> parseInputStatement(); // FINISHED HERE
+  std::unique_ptr<InputStatementNode> parseInputStatement();
   std::unique_ptr<BlockStatementNode> parseBlockStatement();
-  std::unique_ptr<IfStatementNode> parseIfStatement();
+  std::unique_ptr<IfStatementNode> parseIfStatement(); // FINISHED HERE
   std::unique_ptr<ForStatementNode> parseForStatement();
   std::unique_ptr<WhileStatementNode> parseWhileStatement();
   std::unique_ptr<ReturnStatementNode> parseReturnStatement();
@@ -649,4 +649,27 @@ std::unique_ptr<ASTNode> Parser::parseInterfaceMember() {
 
     throw std::runtime_error("Unsupported interface member type");
   }
+}
+
+std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
+  // Consume the opening brace '{'
+  consume(TokenType::Punctuator, "{", "Expected '{' at the start of block");
+
+  // Create a block statement node
+  auto block = std::make_unique<BlockStatementNode>(previous().line);
+
+  // Parse statements until the closing brace '}'
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
+    try {
+      block->statements.push_back(std::unique_ptr<StatementNode>(
+          dynamic_cast<StatementNode *>(parseStatement().release())));
+    } catch (const std::runtime_error &e) {
+      error(e.what()); // Handle parsing errors in each statement
+    }
+  }
+
+  // Consume the closing brace '}'
+  consume(TokenType::Punctuator, "}", "Expected '}' at the end of block");
+
+  return block;
 }
