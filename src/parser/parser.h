@@ -15,7 +15,6 @@ private:
   std::set<std::string> declaredClasses;
   std::set<std::string> declaredInterfaces;
 
-  const std::vector<Token> &tokens;
   int current;
 
   // Utility methods (match, consume, check, advance, peek, previous, isAtEnd,
@@ -121,8 +120,7 @@ std::unique_ptr<ProgramNode> Parser::parse() {
     try {
       program->children.push_back(parseDeclaration());
     } catch (const std::runtime_error &e) {
-      throw std::runtime_error(e.what() + " at line " +
-                               std::to_string(peek().line));
+      throw std::runtime_error(e.what());
     }
   }
 
