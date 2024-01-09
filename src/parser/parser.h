@@ -16,11 +16,7 @@ private:
   std::set<std::string> declaredInterfaces;
 
   int current;
-
-  // Utility methods (match, consume, check, advance, peek, previous, isAtEnd,
-  // error)
   const std::vector<Token> &tokens;
-  int current;
 
   // Utility methods
   bool match(TokenType type, const std::string &expectedValue);
@@ -46,6 +42,7 @@ private:
   std::unique_ptr<FunctionNode> parseFunctionDeclaration();
   std::unique_ptr<VariableDeclarationNode> parseVariableDeclaration();
   std::unique_ptr<InterfaceNode> parseInterfaceDeclaration();
+  std::unique_ptr<TemplateNode> parseTemplateDeclaration();
 
   // Statement Parsing
   std::unique_ptr<ASTNode> parseClassMember();
@@ -157,7 +154,12 @@ void Parser::error(const std::string &message) {
 // Main Parsing Methods
 
 std::unique_ptr<ASTNode> Parser::parseDeclaration() {
-  if (match(TokenType::Keyword, "class")) {
+  if (match(TokenType::Keyword, "export")) {
+    auto exportedItem = parseDeclaration();
+    return std::make_unique<ExportNode>(std::move(exportedItem));
+  } else if (match(TokenType::Keyword, "template")) {
+    return parseTemplateDeclaration();
+  } else if (match(TokenType::Keyword, "class")) {
     return parseClassDeclaration();
   } else if (match(TokenType::Keyword, "function")) {
     return parseFunctionDeclaration();
@@ -475,10 +477,15 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
 }
 std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
   consume(TokenType::Keyword, "class", "Expected 'class' keyword");
-
   Token classNameToken =
       consume(TokenType::Identifier, "", "Expected class name");
   std::string className = classNameToken.value;
+
+  std::string baseClassName;
+  if (match(TokenType::Keyword, "extends")) {
+    baseClassName =
+        consume(TokenType::Identifier, "", "Expected base class name").value;
+  }
 
   // Add the class name to declaredClasses
   declaredClasses.insert(className);
@@ -604,18 +611,11 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   return std::make_unique<FunctionNode>(functionName, std::move(parameters),
                                         std::move(body), isAsync);
 }
-
 std::unique_ptr<VariableDeclarationNode> Parser::parseVariableDeclaration() {
-  // Optional: Parse the type if present
-  std::unique_ptr<TypeNode> type;
-  if (isType(peek().value)) {
-    type = parseType();
-  }
-
-  // Get the variable name
+  bool isConst = match(TokenType::Keyword, "const");
+  auto type = parseType();
   std::string variableName =
       consume(TokenType::Identifier, "", "Expected variable name").value;
-
   // Optional initializer
   std::unique_ptr<ExpressionNode> initializer;
   if (match(TokenType::Operator, "=")) {
@@ -626,14 +626,10 @@ std::unique_ptr<VariableDeclarationNode> Parser::parseVariableDeclaration() {
       error("Expected expression for initializer");
     }
   }
-
-  // Consume the semicolon at the end of the variable declaration
   consume(TokenType::Punctuator, ";",
           "Expected ';' after variable declaration");
-
-  // Create and return a new VariableDeclarationNode
   return std::make_unique<VariableDeclarationNode>(
-      variableName, std::move(type), std::move(initializer));
+      variableName, std::move(type), std::move(initializer), isConst);
 }
 
 std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
@@ -1260,4 +1256,22 @@ std::unique_ptr<CaseClauseNode> Parser::parseCaseClause() {
     return std::make_unique<CaseClauseNode>(std::move(caseExpression),
                                             std::move(statements), line);
   }
+}
+
+std::unique_ptr<TemplateNode> Parser::parseTemplateDeclaration() {
+  consume(TokenType::Keyword, "template", "Expected 'template' keyword");
+
+  consume(TokenType::Punctuator, "<", "Expected '<' after 'template'");
+  std::vector<std::string> templateParams;
+  do {
+    std::string paramName =
+        consume(TokenType::Identifier, "", "Expected template parameter name")
+            .value;
+    templateParams.push_back(paramName);
+  } while (match(TokenType::Punctuator, ","));
+  consume(TokenType::Punctuator, ">", "Expected '>' after template parameters");
+
+  auto declaration = parseDeclaration();
+  return std::make_unique<TemplateNode>(std::move(templateParams),
+                                        std::move(declaration));
 }

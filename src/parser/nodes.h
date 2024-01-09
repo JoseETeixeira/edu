@@ -62,6 +62,7 @@ public:
   virtual void visit(FloatingPointLiteralNode &node) = 0;
   virtual void visit(IntegerLiteralNode &node) = 0;
   virtual void visit(CharacterLiteralNode &node) = 0;
+  virtual void visit(TemplateNode &node) = 0;
 };
 
 class ASTNode {
@@ -662,4 +663,16 @@ public:
   void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   char value;
+};
+class TemplateNode : public ASTNode {
+public:
+  TemplateNode(std::vector<std::string> params,
+               std::unique_ptr<ASTNode> declaration, int line)
+      : ASTNode(line), // Pass the line number to the ASTNode constructor
+        params(std::move(params)), declaration(std::move(declaration)) {}
+
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::vector<std::string> params;
+  std::unique_ptr<ASTNode> declaration;
 };
