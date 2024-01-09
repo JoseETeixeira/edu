@@ -269,7 +269,7 @@ private:
   }
 
   bool isPunctuator(char ch) {
-    static const std::string punctuators = ";,(){}[]";
+    static const std::string punctuators = ";,(){}[]<>"; // Added '<' and '>'
     return punctuators.find(ch) != std::string::npos;
   }
 
