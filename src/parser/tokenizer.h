@@ -26,6 +26,16 @@ class Tokenizer {
 public:
   Tokenizer(const std::string &source) : source(source), position(0), line(1) {}
 
+  std::vector<Token> tokenize() {
+    std::vector<Token> tokens;
+    Token token;
+    do {
+      token = nextToken();
+      tokens.push_back(token);
+    } while (token.type != TokenType::EndOfFile);
+    return tokens;
+  }
+
   Token nextToken() {
     skipWhitespaceAndComments();
 
