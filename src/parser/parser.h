@@ -52,14 +52,14 @@ private:
   std::unique_ptr<ConsoleLogNode> parseConsoleLog();
   std::unique_ptr<InputStatementNode> parseInputStatement();
   std::unique_ptr<BlockStatementNode> parseBlockStatement();
-  std::unique_ptr<IfStatementNode> parseIfStatement(); // FINISHED HERE
+  std::unique_ptr<IfStatementNode> parseIfStatement();
   std::unique_ptr<ForStatementNode> parseForStatement();
   std::unique_ptr<WhileStatementNode> parseWhileStatement();
   std::unique_ptr<ReturnStatementNode> parseReturnStatement();
   std::unique_ptr<BreakStatementNode> parseBreakStatement();
   std::unique_ptr<ContinueStatementNode> parseContinueStatement();
   std::unique_ptr<SwitchStatementNode> parseSwitchStatement();
-  std::unique_ptr<TryCatchNode> parseTryCatchStatement();
+  std::unique_ptr<TryCatchNode> parseTryCatchStatement(); // FINISHED HERE
   std::unique_ptr<ExportNode> parseExportStatement();
   std::unique_ptr<ImportNode> parseImportStatement();
 
@@ -89,8 +89,9 @@ private:
   std::vector<std::unique_ptr<FunctionParameterNode>> parseParameters();
   std::vector<std::unique_ptr<CaseClauseNode>> parseCaseClauses();
 
-  std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression();
-  std::unique_ptr<CaseClauseNode> Parser::parseCaseClause();
+  std::unique_ptr<AwaitExpressionNode> parseAwaitExpression();
+  std::unique_ptr<CaseClauseNode> parseCaseClause();
+  std::unique_ptr<StatementNode> parseExpressionStatement();
 };
 
 bool Parser::match(TokenType type, const std::string &expectedValue) {
@@ -216,13 +217,13 @@ std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
     }
   }
 
-  return left; // If no assignment operator is found, just return the left-hand
-               // expression
+  return left; // If no assignment operator is found, just return the
+               // left-hand expression
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseOrExpression() {
-  auto left = parseAndExpression(); // Start with the next level of precedence,
-                                    // which might be logical AND.
+  auto left = parseAndExpression(); // Start with the next level of
+                                    // precedence, which might be logical AND.
 
   while (match(TokenType::Operator, "||")) {
     std::string operatorValue = previous().value;
@@ -264,8 +265,8 @@ std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
         std::move(left), operatorValue, std::move(right));
   }
 
-  return left; // If no equality operator is found, just return the left operand
-               // expression.
+  return left; // If no equality operator is found, just return the left
+               // operand expression.
 }
 std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
   auto left =
@@ -411,8 +412,8 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
 
     // Parse the input function call (assuming it's represented as a call)
     consume(TokenType::Keyword, "input",
-            "Expected 'input'"); // Consuming the actual input keyword again if
-                                 // the syntax is like 'input()'
+            "Expected 'input'"); // Consuming the actual input keyword again
+                                 // if the syntax is like 'input()'
     consume(TokenType::Punctuator, "(", "Expected '('");
     consume(TokenType::Punctuator, ")", "Expected ')'");
 
@@ -672,4 +673,242 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
   consume(TokenType::Punctuator, "}", "Expected '}' at the end of block");
 
   return block;
+}
+
+std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
+  // Consume the 'if' keyword
+  consume(TokenType::Keyword, "if", "Expected 'if'");
+
+  // Consume the opening parenthesis '('
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'if'");
+
+  // Parse the condition expression
+  auto condition = parseExpression();
+
+  // Consume the closing parenthesis ')'
+  consume(TokenType::Punctuator, ")", "Expected ')' after if condition");
+
+  // Parse the 'then' branch (true branch)
+  auto thenBranch = parseStatement();
+
+  // Optional 'else' branch
+  std::unique_ptr<StatementNode> elseBranch = nullptr;
+  if (match(TokenType::Keyword, "else")) {
+    auto elseStatement = parseStatement();
+    elseBranch = std::unique_ptr<StatementNode>(
+        dynamic_cast<StatementNode *>(elseStatement.release()));
+    if (!elseBranch) {
+      error("Expected a statement for the 'else' branch");
+    }
+  }
+
+  // Create and return the IfStatementNode
+  return std::make_unique<IfStatementNode>(
+      std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
+
+std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
+  // Consume the 'for' keyword
+  consume(TokenType::Keyword, "for", "Expected 'for'");
+
+  // Consume the opening parenthesis '('
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'for'");
+
+  // Parse the initializer
+  std::unique_ptr<StatementNode> initializer;
+  if (match(TokenType::Keyword, "const")) {
+    initializer = parseVariableDeclaration();
+  } else if (!match(TokenType::Punctuator, ";")) {
+    initializer = parseExpressionStatement();
+  }
+
+  // Parse the condition
+  std::unique_ptr<ExpressionNode> condition;
+  if (!check(TokenType::Punctuator, ";")) {
+    auto expr = parseExpression();
+    condition = std::unique_ptr<ExpressionNode>(
+        dynamic_cast<ExpressionNode *>(expr.release()));
+    if (!condition) {
+      error("Expected a valid expression for the condition");
+    }
+  }
+  consume(TokenType::Punctuator, ";", "Expected ';' after for condition");
+
+  // Parse the increment
+  std::unique_ptr<ExpressionNode> increment;
+  if (!check(TokenType::Punctuator, ")")) {
+    auto expr = parseExpression();
+    increment = std::unique_ptr<ExpressionNode>(
+        dynamic_cast<ExpressionNode *>(expr.release()));
+    if (!increment) {
+      error("Expected a valid expression for the increment");
+    }
+  }
+  consume(TokenType::Punctuator, ")", "Expected ')' after for clauses");
+
+  // Parse the body
+  auto body = parseStatement();
+
+  // Create and return the ForStatementNode
+  return std::make_unique<ForStatementNode>(
+      std::move(initializer), std::move(condition), std::move(increment),
+      std::move(body));
+}
+
+std::unique_ptr<StatementNode> Parser::parseExpressionStatement() {
+  // Parse the expression
+  auto expr = parseExpression();
+
+  // Consume the semicolon at the end of the expression statement
+  consume(TokenType::Punctuator, ";", "Expected ';' after expression");
+
+  // Return the expression wrapped in a StatementNode
+  // Assuming you have a wrapper node for this purpose, or modify as needed
+  return std::make_unique<ExpressionStatementNode>(std::move(expr));
+}
+
+std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
+  // Consume the 'while' keyword
+  consume(TokenType::Keyword, "while",
+          "Expected 'while' keyword in while statement");
+
+  // Consume the opening parenthesis '('
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'while'");
+
+  // Parse the condition expression inside the while statement
+  auto condition = parseExpression();
+
+  // Consume the closing parenthesis ')'
+  consume(TokenType::Punctuator, ")", "Expected ')' after while condition");
+
+  // Parse the statement that forms the body of the while loop
+  auto body = parseStatement();
+
+  // Create and return the while statement node
+  return std::make_unique<WhileStatementNode>(std::move(condition),
+                                              std::move(body));
+}
+
+std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
+  // Consume the 'return' keyword
+  consume(TokenType::Keyword, "return",
+          "Expected 'return' keyword in return statement");
+
+  std::unique_ptr<ExpressionNode> returnValue;
+
+  // Check if the next token is not a semicolon, indicating a return value is
+  // present
+  if (!check(TokenType::Punctuator, ";")) {
+    // Parse the return value expression
+    auto expr = parseExpression();
+
+    // Cast the ASTNode to ExpressionNode
+    returnValue = std::unique_ptr<ExpressionNode>(
+        dynamic_cast<ExpressionNode *>(expr.release()));
+    if (!returnValue) {
+      error("Invalid expression in return statement");
+    }
+  }
+
+  // Consume the semicolon at the end of the return statement
+  consume(TokenType::Punctuator, ";", "Expected ';' after return statement");
+
+  // Create and return the return statement node with the optional return value
+  return std::make_unique<ReturnStatementNode>(std::move(returnValue));
+}
+
+std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement() {
+  // Consume the 'break' keyword
+  consume(TokenType::Keyword, "break",
+          "Expected 'break' keyword in break statement");
+
+  // Consume the semicolon at the end of the break statement
+  consume(TokenType::Punctuator, ";", "Expected ';' after break statement");
+
+  // Create and return the break statement node
+  return std::make_unique<BreakStatementNode>();
+}
+
+std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement() {
+  // Consume the 'continue' keyword
+  consume(TokenType::Keyword, "continue",
+          "Expected 'continue' keyword in continue statement");
+
+  // Consume the semicolon at the end of the continue statement
+  consume(TokenType::Punctuator, ";", "Expected ';' after continue statement");
+
+  // Create and return the continue statement node
+  return std::make_unique<ContinueStatementNode>();
+}
+
+std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
+  // Consume the 'switch' keyword
+  consume(TokenType::Keyword, "switch",
+          "Expected 'switch' keyword in switch statement");
+
+  // Consume the opening parenthesis '('
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'switch'");
+
+  // Parse the control expression for the switch
+  auto controlExpression = parseExpression();
+
+  // Consume the closing parenthesis ')'
+  consume(TokenType::Punctuator, ")",
+          "Expected ')' after switch control expression");
+
+  // Consume the opening brace '{' for the switch body
+  consume(TokenType::Punctuator, "{",
+          "Expected '{' at the start of switch body");
+
+  // Prepare a vector to hold the case clauses
+  std::vector<std::unique_ptr<CaseClauseNode>> cases;
+
+  // Loop to parse each case clause
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
+    cases.push_back(parseCaseClause());
+  }
+
+  // Consume the closing brace '}' for the switch body
+  consume(TokenType::Punctuator, "}", "Expected '}' at the end of switch body");
+
+  // Create and return the switch statement node
+  return std::make_unique<SwitchStatementNode>(std::move(controlExpression),
+                                               std::move(cases));
+}
+
+std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
+  // Consume the 'try' keyword
+  consume(TokenType::Keyword, "try",
+          "Expected 'try' keyword in try-catch statement");
+
+  // Parse the try block
+  auto tryBlock = parseBlockStatement();
+
+  // Consume the 'catch' keyword
+  consume(TokenType::Keyword, "catch",
+          "Expected 'catch' keyword after try block");
+
+  // Consume the opening parenthesis '('
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'catch'");
+
+  // Parse the error type and variable name
+  consume(TokenType::Identifier, "Error",
+          "Expected 'Error' type in catch clause");
+  std::string errorVarName =
+      consume(TokenType::Identifier, "", "Expected error variable name").value;
+
+  // Consume the closing parenthesis ')'
+  consume(TokenType::Punctuator, ")", "Expected ')' after catch clause header");
+
+  // Parse the catch block
+  auto catchBlock = parseBlockStatement();
+
+  // Create the error object structure (assuming a constructor or similar method
+  // exists)
+  auto errorObject =
+      std::make_unique<ErrorTypeNode>(errorVarName, "message", "errorCode");
+
+  // Create and return the try-catch statement node
+  return std::make_unique<TryCatchNode>(
+      std::move(tryBlock), std::move(errorObject), std::move(catchBlock));
 }

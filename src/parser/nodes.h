@@ -56,6 +56,8 @@ public:
   virtual void visit(CharLiteralNode &node) = 0;
   virtual void visit(PropertyDeclarationNode &node) = 0;
   virtual void visit(ConstructorNode &node) = 0;
+  virtual void visit(ExpressionStatementNode &node) = 0;
+  virtual void visit(ErrorTypeNode &node) = 0;
 };
 
 class ASTNode {
@@ -583,4 +585,28 @@ public:
 
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
   std::unique_ptr<BlockStatementNode> body;
+};
+
+class ExpressionStatementNode : public StatementNode {
+public:
+  ExpressionStatementNode(std::unique_ptr<ExpressionNode> expression, int line)
+      : StatementNode(line), expression(std::move(expression)) {}
+
+  std::unique_ptr<ExpressionNode> expression;
+};
+
+class ErrorTypeNode : public ASTNode {
+public:
+  // Constructor: takes the variable name, message, error code, and line number.
+  ErrorTypeNode(const std::string &varName, const std::string &message,
+                const std::string &errorCode, int line)
+      : ASTNode(line), varName(varName), message(message),
+        errorCode(errorCode) {}
+
+  // Accept method for the visitor pattern.
+  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
+
+  std::string varName;
+  std::string message;
+  std::string errorCode;
 };
