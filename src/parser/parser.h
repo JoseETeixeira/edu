@@ -75,7 +75,7 @@ private:
   std::unique_ptr<ExpressionNode> parsePrimaryExpression();
 
   // Primary Expressions
-  std::unique_ptr<ExpressionNode> parseLiteral(); // NOT CALLED ANYWHERE
+  std::unique_ptr<ExpressionNode> parseLiteral();
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
   std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
@@ -85,14 +85,7 @@ private:
 
   // Utility Parsing Methods
   std::unique_ptr<TypeNode> parseType();
-  std::unique_ptr<FunctionParameterNode>
-  parseFunctionParameter(); // NOT USED ANYWHERE
-  std::vector<std::unique_ptr<ExpressionNode>>
-  parseArguments(); // NOT USED ANYWHERE
   std::vector<std::unique_ptr<FunctionParameterNode>> parseParameters();
-  std::vector<std::unique_ptr<CaseClauseNode>>
-  parseCaseClauses(); // NOT USED ANYWHERE
-
   std::unique_ptr<AwaitExpressionNode>
   parseAwaitExpression(); // NOT USED ANYWHERE
   std::unique_ptr<CaseClauseNode> parseCaseClause();
@@ -1095,4 +1088,26 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
   // Add more cases as needed for other types of literals
 
   throw std::runtime_error("Expected literal");
+}
+
+std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral() {
+  consume(TokenType::Punctuator, "[",
+          "Expected '[' at the start of array literal");
+
+  std::vector<std::unique_ptr<ExpressionNode>> elements;
+  if (!check(TokenType::Punctuator, "]")) {
+    do {
+      auto element = parseExpression();
+      elements.push_back(std::unique_ptr<ExpressionNode>(
+          dynamic_cast<ExpressionNode *>(element.release())));
+      if (!elements.back()) {
+        throw std::runtime_error("Expected expression in array literal");
+      }
+    } while (match(TokenType::Punctuator, ","));
+  }
+
+  consume(TokenType::Punctuator, "]",
+          "Expected ']' at the end of array literal");
+
+  return std::make_unique<ArrayLiteralNode>(std::move(elements));
 }
