@@ -6,26 +6,54 @@
 
 class Parser {
 public:
-  explicit Parser::Parser(const std::vector<Token> &tokens)
-      : tokens(tokens), current(0) {}
+  Parser(const std::vector<Token> &tokens) : tokens(tokens), current(0) {}
 
   std::unique_ptr<ProgramNode> parse();
 
 private:
+  const std::vector<Token> &tokens;
   std::set<std::string> declaredClasses;
   std::set<std::string> declaredInterfaces;
 
   int current;
-  const std::vector<Token> &tokens;
 
   // Utility methods
-  bool match(TokenType type, const std::string &expectedValue);
+  bool match(TokenType type, const std::string &expectedValue) {
+    if (check(type, expectedValue)) {
+      advance();
+      return true;
+    }
+    return false;
+  }
+
   Token consume(TokenType type, const std::string &expectedValue,
-                const std::string &errorMessage);
-  bool check(TokenType type, const std::string &expectedValue) const;
-  Token advance();
-  Token peek() const;
-  Token previous() const;
+                const std::string &errorMessage) {
+    if (check(type, expectedValue)) {
+      return advance();
+    } else {
+      throw std::runtime_error(errorMessage);
+    }
+  }
+
+  bool check(TokenType type, const std::string &expectedValue) {
+    if (isAtEnd())
+      return false;
+    if (expectedValue != "") {
+      return peek().type == type && peek().value == expectedValue;
+    } else {
+      return peek().type == type;
+    }
+  }
+
+  Token advance() {
+    if (!isAtEnd())
+      current++;
+    return previous();
+  }
+
+  Token peek() const { return tokens[current]; }
+
+  Token previous() { return tokens[current - 1]; }
   bool isAtEnd() const;
   void error(const std::string &message);
   bool isType(const std::string &keyword);
@@ -80,6 +108,7 @@ private:
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
   std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
+
   std::unique_ptr<CallExpressionNode> parseCallExpression(std::string callee);
   std::unique_ptr<MemberAccessExpressionNode>
   parseMemberAccessExpression(std::string object);
@@ -92,21 +121,11 @@ private:
   std::unique_ptr<StatementNode> parseExpressionStatement();
 };
 
-bool Parser::match(TokenType type, const std::string &expectedValue) {
-  if (check(type, expectedValue)) {
-    advance();
-    return true;
-  }
-  return false;
-}
+bool Parser::isAtEnd() const { return peek().type == TokenType::EndOfFile; }
 
-Token Parser::consume(TokenType type, const std::string &expectedValue,
-                      const std::string &errorMessage) {
-  if (check(type, expectedValue)) {
-    return advance();
-  } else {
-    throw std::runtime_error(errorMessage);
-  }
+void Parser::error(const std::string &message) {
+  // Error handling logic
+  throw std::runtime_error(message);
 }
 
 std::unique_ptr<ProgramNode> Parser::parse() {
@@ -122,33 +141,6 @@ std::unique_ptr<ProgramNode> Parser::parse() {
   }
 
   return program;
-}
-
-bool Parser::check(TokenType type, const std::string &expectedValue) const {
-  if (isAtEnd())
-    return false;
-  if (expectedValue != "") {
-    return peek().type == type && peek().value == expectedValue;
-  } else {
-    return peek().type == type;
-  }
-}
-
-Token Parser::advance() {
-  if (!isAtEnd())
-    current++;
-  return previous();
-}
-
-Token Parser::peek() const { return tokens[current]; }
-
-Token Parser::previous() const { return tokens[current - 1]; }
-
-bool Parser::isAtEnd() const { return peek().type == TokenType::EndOfFile; }
-
-void Parser::error(const std::string &message) {
-  // Error handling logic
-  throw std::runtime_error(message);
 }
 
 // Main Parsing Methods
@@ -477,7 +469,7 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
 }
 std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
   consume(TokenType::Keyword, "class", "Expected 'class' keyword");
-  Token classNameToken =
+  auto classNameToken =
       consume(TokenType::Identifier, "", "Expected class name");
   std::string className = classNameToken.value;
 
@@ -1081,26 +1073,27 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
     std::string value = previous().value;
     if (value.find('.') != std::string::npos) {
       // Contains a decimal point, treat as a floating point or double
-      return std::make_unique<FloatingPointLiteralNode>(value);
+      return std::make_unique<FloatingPointLiteralNode>(value, previous().line);
     } else {
       // No decimal point, treat as an integer
-      return std::make_unique<IntegerLiteralNode>(value);
+      return std::make_unique<IntegerLiteralNode>(value, previous().line);
     }
   } else if (match(TokenType::String, "")) {
     // For string literals
-    return std::make_unique<StringLiteralNode>(previous().value);
+    return std::make_unique<StringLiteralNode>(previous().value,
+                                               previous().line);
   } else if (match(TokenType::Keyword, "true") ||
              match(TokenType::Keyword, "false")) {
     // For boolean literals
     bool value = previous().value == "true";
-    return std::make_unique<BooleanLiteralNode>(value);
+    return std::make_unique<BooleanLiteralNode>(value, previous().line);
   } else if (match(TokenType::Keyword, "null")) {
     // For null literals
     return std::make_unique<NullLiteralNode>();
   } else if (match(TokenType::Character, "")) {
     // For character literals
     char value = previous().value[0];
-    return std::make_unique<CharacterLiteralNode>(value);
+    return std::make_unique<CharacterLiteralNode>(value, previous().line);
   }
   // Add more cases as needed for other types of literals
 
@@ -1162,7 +1155,7 @@ std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
 }
 
 std::unique_ptr<TypeNode> Parser::parseType() {
-  Token typeToken = consume(TokenType::Identifier, "", "Expected a type");
+  auto typeToken = consume(TokenType::Identifier, "", "Expected a type");
 
   std::string typeName = typeToken.value;
   if (typeName == "bool" || typeName == "char" || typeName == "int" ||
