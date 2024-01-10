@@ -63,7 +63,7 @@ private:
   // Main Parsing Methods
   std::unique_ptr<ASTNode> parseDeclaration();
   std::unique_ptr<ASTNode> parseStatement();
-  std::unique_ptr<ASTNode> parseExpression();
+  std::unique_ptr<ExpressionNode> parseExpression();
 
   // Declaration Parsing
   std::unique_ptr<ClassNode> parseClassDeclaration();
@@ -201,7 +201,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
   return parseExpression();
 }
 
-std::unique_ptr<ASTNode> Parser::parseExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseExpression() {
   if (check(TokenType::Punctuator, "[")) {
     return parseArrayLiteral();
   } else if (check(TokenType::Punctuator, "{")) {
@@ -436,7 +436,9 @@ std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
           "Expected ';' after console.log statement");
 
   // Create and return a new ConsoleLogNode
-  return std::make_unique<ConsoleLogNode>(std::move(expression));
+  auto console_log_node = std::make_unique<ConsoleLogNode>(previous().line);
+  console_log_node->expression = std::move(expression);
+  return;
 }
 
 std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
@@ -458,7 +460,8 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
     consume(TokenType::Punctuator, "(", "Expected '('");
     consume(TokenType::Punctuator, ")", "Expected ')'");
 
-    variable = std::make_unique<VariableDeclarationNode>(variableName);
+    variable = std::make_unique<VariableDeclarationNode>(variableName,
+                                                         previous().line);
   }
 
   // Consume the semicolon at the end of the input statement
@@ -600,8 +603,7 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   auto body = parseBlockStatement();
 
   // Create and return a new FunctionNode
-  return std::make_unique<FunctionNode>(functionName, std::move(parameters),
-                                        std::move(body), isAsync);
+  return std::make_unique<FunctionNode>(functionName, previous().line);
 }
 std::unique_ptr<VariableDeclarationNode> Parser::parseVariableDeclaration() {
   bool isConst = match(TokenType::Keyword, "const");
@@ -620,8 +622,8 @@ std::unique_ptr<VariableDeclarationNode> Parser::parseVariableDeclaration() {
   }
   consume(TokenType::Punctuator, ";",
           "Expected ';' after variable declaration");
-  return std::make_unique<VariableDeclarationNode>(
-      variableName, std::move(type), std::move(initializer), isConst);
+  return std::make_unique<VariableDeclarationNode>(variableName,
+                                                   previous().line);
 }
 
 std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
@@ -1060,8 +1062,7 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
 
   // Create a FunctionNode. Since it's anonymous, we pass an empty string for
   // the function name
-  auto functionNode = std::make_unique<FunctionNode>("", std::move(parameters),
-                                                     std::move(body));
+  auto functionNode = std::make_unique<FunctionNode>("", previous().line);
 
   // Wrap the FunctionNode in an ExpressionNode if necessary
   return std::make_unique<FunctionExpressionNode>(std::move(functionNode));
@@ -1206,8 +1207,10 @@ std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression() {
   consume(TokenType::Keyword, "await", "Expected 'await'");
 
   auto expression = parseExpression(); // Parse the expression following 'await'
-
-  return std::make_unique<AwaitExpressionNode>(std::move(expression));
+  std::unique_ptr<AwaitExpressionNode> node =
+      std::make_unique<AwaitExpressionNode>(previous().line);
+  node->expression = std::move(expression);
+  return node;
 }
 
 std::unique_ptr<CaseClauseNode> Parser::parseCaseClause() {
@@ -1265,6 +1268,6 @@ std::unique_ptr<TemplateNode> Parser::parseTemplateDeclaration() {
   consume(TokenType::Punctuator, ">", "Expected '>' after template parameters");
 
   auto declaration = parseDeclaration();
-  return std::make_unique<TemplateNode>(std::move(templateParams),
-                                        std::move(declaration));
+  return std::make_unique<TemplateNode>(
+      std::move(templateParams), std::move(declaration), previous().line);
 }
