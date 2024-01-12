@@ -68,7 +68,8 @@ private:
   // Declaration Parsing
   std::unique_ptr<ClassNode> parseClassDeclaration();
   std::unique_ptr<FunctionNode> parseFunctionDeclaration();
-  std::unique_ptr<VariableDeclarationNode> parseVariableDeclaration();
+  std::unique_ptr<VariableDeclarationNode>
+  parseVariableDeclaration(std::string type);
   std::unique_ptr<InterfaceNode> parseInterfaceDeclaration();
   std::unique_ptr<TemplateNode> parseTemplateDeclaration();
 
@@ -162,19 +163,9 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
   } else if (match(TokenType::Keyword, "async")) {
     // Handle async functions
     return parseFunctionDeclaration();
-  } else if (match(TokenType::Keyword, "const")) {
-    return parseVariableDeclaration();
   } else if (match(TokenType::Keyword, "interface")) {
     return parseInterfaceDeclaration();
-  }
-  return parseStatement();
-}
-
-std::unique_ptr<ASTNode> Parser::parseStatement() {
-  if (match(TokenType::Punctuator, "{")) {
-    return parseBlockStatement();
-  }
-  if (match(TokenType::Keyword, "if")) {
+  } else if (match(TokenType::Keyword, "if")) {
     return parseIfStatement();
   } else if (match(TokenType::Keyword, "for")) {
     return parseForStatement();
@@ -198,10 +189,22 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
     return parseNullReference();
   } else if (match(TokenType::Keyword, "console.log")) {
     return parseConsoleLog();
+  } else if (match(TokenType::Keyword, "await")) {
+    return parseAwaitExpression();
   } else if (match(TokenType::Keyword, "input")) {
     return parseInputStatement();
+  } else if (match(TokenType::Keyword, "") ||
+             match(TokenType::Keyword, "const")) {
+    return parseVariableDeclaration(previous().value);
   }
-  // If none of the above keywords match, default to parsing an expression
+  return parseStatement();
+}
+
+std::unique_ptr<ASTNode> Parser::parseStatement() {
+  if (match(TokenType::Punctuator, "{")) {
+    return parseBlockStatement();
+  }
+
   return parseExpression();
 }
 
@@ -210,10 +213,6 @@ std::unique_ptr<ExpressionNode> Parser::parseExpression() {
     return parseArrayLiteral();
   } else if (check(TokenType::Punctuator, "{")) {
     return parseObjectLiteral();
-  } else if (check(TokenType::Keyword, "function")) {
-    return parseAnonymousFunction();
-  } else if (match(TokenType::Keyword, "await")) {
-    return parseAwaitExpression();
   } else {
     return parseAssignmentExpression();
   }
@@ -628,25 +627,33 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   // Create and return a new FunctionNode
   return std::make_unique<FunctionNode>(functionName, previous().line);
 }
-std::unique_ptr<VariableDeclarationNode> Parser::parseVariableDeclaration() {
+std::unique_ptr<VariableDeclarationNode>
+Parser::parseVariableDeclaration(std::string type) {
   bool isConst = match(TokenType::Keyword, "const");
-  auto type = parseType();
-  std::string variableName =
-      consume(TokenType::Identifier, "", "Expected variable name").value;
+
+  // First, correctly parse the type
+  auto variableName = consume(TokenType::Identifier, "", "Expected type").value;
+  std::string typeName = type;
+  std::cout << typeName << std::endl;
+  if (!isType(typeName)) {
+    throw std::runtime_error("Unknown type: " + typeName);
+  }
+
   // Optional initializer
   std::unique_ptr<ExpressionNode> initializer;
   if (match(TokenType::Operator, "=")) {
-    auto expr = parseExpression();
-    initializer = std::unique_ptr<ExpressionNode>(
-        dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!initializer) {
-      error("Expected expression for initializer");
-    }
+    initializer = parseExpression();
   }
+
   consume(TokenType::Punctuator, ";",
           "Expected ';' after variable declaration");
-  return std::make_unique<VariableDeclarationNode>(variableName,
-                                                   previous().line);
+
+  std::unique_ptr<VariableDeclarationNode> node =
+      std::make_unique<VariableDeclarationNode>(variableName, previous().line);
+  node->initializer = std::move(initializer);
+  node->isConst = isConst;
+  node->typeName = typeName;
+  return node;
 }
 
 std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
@@ -782,8 +789,8 @@ std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
 
   // Parse the initializer
   std::unique_ptr<StatementNode> initializer;
-  if (match(TokenType::Keyword, "const")) {
-    initializer = parseVariableDeclaration();
+  if (match(TokenType::Keyword, "") || match(TokenType::Keyword, "")) {
+    initializer = parseVariableDeclaration(previous().value);
   } else if (!match(TokenType::Punctuator, ";")) {
     initializer = parseExpressionStatement();
   }
@@ -1014,7 +1021,7 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement() {
       // 'async', parse it accordingly
       exportItem = parseDeclaration();
     } else {
-      exportItem = parseVariableDeclaration();
+      exportItem = parseVariableDeclaration(peek().value);
     }
   } else {
     error("Expected a declaration after 'export'");
@@ -1226,6 +1233,7 @@ std::unique_ptr<TypeNode> Parser::parseType() {
   auto typeToken = consume(TokenType::Identifier, "", "Expected a type");
 
   std::string typeName = typeToken.value;
+  std::cout << typeName << std::endl;
   if (typeName == "bool" || typeName == "char" || typeName == "int" ||
       typeName == "float" || typeName == "double" || typeName == "void" ||
       typeName == "wchar_t" || typeName == "string" || typeName == "Error" ||

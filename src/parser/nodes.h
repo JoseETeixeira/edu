@@ -149,6 +149,8 @@ public:
       : StatementNode(line), name(name) {}
   std::string name;
   std::unique_ptr<ExpressionNode> initializer;
+  std::string typeName;
+  bool isConst;
 };
 
 class ReturnStatementNode : public StatementNode {
