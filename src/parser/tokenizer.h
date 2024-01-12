@@ -56,8 +56,12 @@ public:
     }
 
     // Check for string literal
-    if (currentChar == '"' || currentChar == '\'') {
+    if (currentChar == '"') {
       return stringLiteral();
+    }
+
+    if (currentChar == '\'') {
+      return characterLiteral();
     }
 
     // Check for operators and punctuators

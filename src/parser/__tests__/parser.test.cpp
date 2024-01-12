@@ -102,30 +102,6 @@ TEST_F(ParserTest, ParseFloatVariableDeclaration) {
       << "Initializer value should be 3.14";
 }
 
-TEST_F(ParserTest, ParseDoubleVariableDeclaration) {
-  std::string source = "double myDouble = 3.14;";
-  Tokenizer tokenizer(source);
-  const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
-
-  Parser parser(tokens); // Pass the const reference to the constructor
-
-  auto program = parser.parse();
-  ASSERT_NE(program->children.size(), 0)
-      << "Program should have children nodes";
-
-  auto varDeclNode =
-      dynamic_cast<VariableDeclarationNode *>(program->children[0].get());
-
-  ASSERT_EQ(varDeclNode->typeName, "double")
-      << "Variable type should be 'double'";
-  auto initializer =
-      dynamic_cast<FloatingPointLiteralNode *>(varDeclNode->initializer.get());
-  ASSERT_NE(initializer, nullptr)
-      << "Initializer should be a FloatingPointLiteralNode";
-  ASSERT_DOUBLE_EQ(initializer->value, 3.14)
-      << "Initializer value should be 3.14";
-}
-
 TEST_F(ParserTest, ParseStringVariableDeclaration) {
   std::string source = "string myString = \"Hello\";";
   Tokenizer tokenizer(source);

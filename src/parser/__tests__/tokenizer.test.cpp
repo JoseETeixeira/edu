@@ -141,3 +141,15 @@ TEST_F(TokenizerTest, TokenizersVariableDeclaration) {
   EXPECT_EQ(tokens[2].type, TokenType::Operator);
   EXPECT_EQ(tokens[3].type, TokenType::Number);
 }
+
+TEST_F(TokenizerTest, TokenizesCharacterVariable) {
+  std::string source = "char myVar = 'a';";
+
+  auto tokens = tokenizeSource(source);
+
+  // Example assertions (not exhaustive):
+  EXPECT_EQ(tokens[0].type, TokenType::Keyword);
+  EXPECT_EQ(tokens[1].type, TokenType::Identifier);
+  EXPECT_EQ(tokens[2].type, TokenType::Operator);
+  EXPECT_EQ(tokens[3].type, TokenType::Character);
+}

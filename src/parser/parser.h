@@ -390,8 +390,8 @@ std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
 
 std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
   if (match(TokenType::Number, "") || match(TokenType::String, "") ||
-      match(TokenType::Keyword, "true") || match(TokenType::Keyword, "false") ||
-      match(TokenType::Keyword, "null")) {
+      match(TokenType::Character, "") || match(TokenType::Keyword, "true") ||
+      match(TokenType::Keyword, "false") || match(TokenType::Keyword, "null")) {
     return parseLiteral();
   } else if (match(TokenType::Identifier, "")) {
     std::string identifier = previous().value;
@@ -1162,8 +1162,7 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
               previous().value == "null")) {
     // For null literals
     return std::make_unique<NullLiteralNode>(previous().line);
-  } else if ((previous().type == TokenType::Character)) {
-    // For character literals
+  } else if (previous().type == TokenType::Character) {
     char value = previous().value[0];
     return std::make_unique<CharacterLiteralNode>(value, previous().line);
   }

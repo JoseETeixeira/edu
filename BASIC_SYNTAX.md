@@ -6,7 +6,6 @@ Boolean: bool
 Character: char
 Integer: int
 Floating point: float
-Double floating point: double
 Valueless: void
 Wide character: wchar_t
 String: string
