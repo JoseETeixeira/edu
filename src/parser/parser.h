@@ -109,9 +109,10 @@ private:
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
   std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
 
-  std::unique_ptr<CallExpressionNode> parseCallExpression(std::string callee);
+  std::unique_ptr<CallExpressionNode>
+  parseCallExpression(std::unique_ptr<VariableExpressionNode> callee);
   std::unique_ptr<MemberAccessExpressionNode>
-  parseMemberAccessExpression(std::string object);
+  parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object);
 
   // Utility Parsing Methods
   std::unique_ptr<TypeNode> parseType();
@@ -148,7 +149,10 @@ std::unique_ptr<ProgramNode> Parser::parse() {
 std::unique_ptr<ASTNode> Parser::parseDeclaration() {
   if (match(TokenType::Keyword, "export")) {
     auto exportedItem = parseDeclaration();
-    return std::make_unique<ExportNode>(std::move(exportedItem));
+    std::unique_ptr<ExportNode> node =
+        std::make_unique<ExportNode>(previous().line);
+    node->exportItem = std::move(exportedItem);
+    return node;
   } else if (match(TokenType::Keyword, "template")) {
     return parseTemplateDeclaration();
   } else if (match(TokenType::Keyword, "class")) {
@@ -230,8 +234,12 @@ std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
     // and may involve more checks)
     if (dynamic_cast<VariableExpressionNode *>(left.get()) ||
         dynamic_cast<MemberAccessExpressionNode *>(left.get())) {
-      return std::make_unique<AssignmentExpressionNode>(
-          std::move(left), operatorValue, std::move(right));
+      std::unique_ptr<AssignmentExpressionNode> node =
+          std::make_unique<AssignmentExpressionNode>(operatorValue,
+                                                     previous().line);
+      node->left = std::move(left);
+      node->right = std::move(right);
+      return node;
     } else {
       error("Invalid left-hand side in assignment");
     }
@@ -248,8 +256,8 @@ std::unique_ptr<ExpressionNode> Parser::parseOrExpression() {
   while (match(TokenType::Operator, "||")) {
     std::string operatorValue = previous().value;
     auto right = parseAndExpression(); // Recursively parse the right operand.
-    left = std::make_unique<OrExpressionNode>(std::move(left), operatorValue,
-                                              std::move(right));
+    left = std::make_unique<OrExpressionNode>(
+        std::move(left), operatorValue, std::move(right), previous().line);
   }
 
   return left; // If no OR operator is found, just return the left operand
@@ -265,8 +273,8 @@ std::unique_ptr<ExpressionNode> Parser::parseAndExpression() {
     std::string operatorValue = previous().value;
     auto right =
         parseEqualityExpression(); // Recursively parse the right operand.
-    left = std::make_unique<AndExpressionNode>(std::move(left), operatorValue,
-                                               std::move(right));
+    left = std::make_unique<AndExpressionNode>(
+        std::move(left), operatorValue, std::move(right), previous().line);
   }
 
   return left; // If no AND operator is found, just return the left operand
@@ -282,7 +290,7 @@ std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
     auto right =
         parseComparisonExpression(); // Recursively parse the right operand.
     left = std::make_unique<EqualityExpressionNode>(
-        std::move(left), operatorValue, std::move(right));
+        std::move(left), operatorValue, std::move(right), previous().line);
   }
 
   return left; // If no equality operator is found, just return the left
@@ -298,7 +306,7 @@ std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
     auto right =
         parseAdditionExpression(); // Recursively parse the right operand.
     left = std::make_unique<ComparisonExpressionNode>(
-        std::move(left), operatorValue, std::move(right));
+        std::move(left), operatorValue, std::move(right), previous().line);
   }
 
   return left; // If no comparison operator is found, just return the left
@@ -312,12 +320,12 @@ std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression() {
   while (true) {
     if (match(TokenType::Operator, "+")) {
       auto right = parseMultiplicationExpression(); // Parse the right operand.
-      left = std::make_unique<AdditionExpressionNode>(std::move(left), "+",
-                                                      std::move(right));
+      left = std::make_unique<AdditionExpressionNode>(
+          std::move(left), "+", std::move(right), previous().line);
     } else if (match(TokenType::Operator, "-")) {
       auto right = parseMultiplicationExpression(); // Parse the right operand.
-      left = std::make_unique<SubtractionExpressionNode>(std::move(left), "-",
-                                                         std::move(right));
+      left = std::make_unique<SubtractionExpressionNode>(
+          std::move(left), "-", std::move(right), previous().line);
     } else {
       break; // No more addition or subtraction operators.
     }
@@ -334,11 +342,11 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
     if (match(TokenType::Operator, "*")) {
       auto right = parseUnaryExpression(); // Parse the right operand.
       left = std::make_unique<MultiplicationExpressionNode>(
-          std::move(left), "*", std::move(right));
+          std::move(left), "*", std::move(right), previous().line);
     } else if (match(TokenType::Operator, "/")) {
       auto right = parseUnaryExpression(); // Parse the right operand.
-      left = std::make_unique<DivisionExpressionNode>(std::move(left), "/",
-                                                      std::move(right));
+      left = std::make_unique<DivisionExpressionNode>(
+          std::move(left), "/", std::move(right), previous().line);
     } else {
       break; // No more multiplication or division operators.
     }
@@ -348,29 +356,33 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
-
-  if (check(TokenType::Identifier, "")) {
-    std::string identifier =
-        consume(TokenType::Identifier, "", "Expected identifier").value;
+  if (match(TokenType::Identifier, "")) {
+    std::string identifier = previous().value;
 
     if (match(TokenType::Punctuator, "(")) {
       // It's a function call
-      return parseCallExpression(identifier);
+      return parseCallExpression(std::make_unique<VariableExpressionNode>(
+          identifier, previous().line));
     } else if (match(TokenType::Punctuator, ".")) {
       // It's a member access
-      return parseMemberAccessExpression(identifier);
+      return parseMemberAccessExpression(
+          std::make_unique<VariableExpressionNode>(identifier,
+                                                   previous().line));
     }
 
     // If it's just an identifier (not a function call or member access)
-    return std::make_unique<VariableExpressionNode>(identifier);
+    return std::make_unique<VariableExpressionNode>(identifier,
+                                                    previous().line);
   }
 
   // Check for unary operators
   if (match(TokenType::Operator, "-") || match(TokenType::Operator, "!")) {
     std::string operatorValue = previous().value; // Get the unary operator
     auto operand = parseUnaryExpression(); // Recursively parse the operand
-    return std::make_unique<UnaryExpressionNode>(operatorValue,
-                                                 std::move(operand));
+    std::unique_ptr<UnaryExpressionNode> node =
+        std::make_unique<UnaryExpressionNode>(operatorValue, previous().line);
+    node->operand = std::move(operand);
+    return node;
   }
 
   // If no unary operator is found, parse the primary expression
@@ -386,12 +398,19 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
     std::string identifier = previous().value;
 
     if (match(TokenType::Punctuator, "(")) {
-      return parseCallExpression(identifier);
+      // It's a function call
+      return parseCallExpression(std::make_unique<VariableExpressionNode>(
+          identifier, previous().line));
     } else if (match(TokenType::Punctuator, ".")) {
-      return parseMemberAccessExpression(identifier);
+      // It's a member access
+      return parseMemberAccessExpression(
+          std::make_unique<VariableExpressionNode>(identifier,
+                                                   previous().line));
     }
 
-    return std::make_unique<VariableExpressionNode>(identifier);
+    // Just an identifier
+    return std::make_unique<VariableExpressionNode>(identifier,
+                                                    previous().line);
   } else if (match(TokenType::Punctuator, "[")) {
     return parseArrayLiteral();
   } else if (match(TokenType::Punctuator, "{")) {
@@ -468,7 +487,10 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
   consume(TokenType::Punctuator, ";", "Expected ';' after input statement");
 
   // Create and return a new InputStatementNode
-  return std::make_unique<InputStatementNode>(std::move(variable));
+  std::unique_ptr<InputStatementNode> node =
+      std::make_unique<InputStatementNode>(previous().line);
+  node->variable = std::move(variable);
+  return node;
 }
 std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
   consume(TokenType::Keyword, "class", "Expected 'class' keyword");
@@ -563,7 +585,7 @@ std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration() {
   auto body = parseBlockStatement(); // Parse the constructor's body
 
   return std::make_unique<ConstructorNode>(std::move(parameters),
-                                           std::move(body));
+                                           std::move(body), previous().line);
 }
 
 std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
@@ -591,8 +613,9 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
         // Parse parameter type if present
         paramType = parseType();
       }
-      parameters.push_back(std::make_unique<FunctionParameterNode>(
-          paramName, std::move(paramType)));
+      std::unique_ptr<FunctionParameterNode> parameter =
+          std::make_unique<FunctionParameterNode>(paramName, previous().line);
+      parameter->type = std::move(paramType);
     } while (match(TokenType::Punctuator, ","));
   }
 
@@ -638,7 +661,8 @@ std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
   declaredInterfaces.insert(interfaceName);
 
   // Create a new InterfaceNode with the parsed name
-  auto interfaceNode = std::make_unique<InterfaceNode>(interfaceName);
+  auto interfaceNode =
+      std::make_unique<InterfaceNode>(interfaceName, previous().line);
 
   // Consume the opening brace '{' of the interface body
   consume(TokenType::Punctuator, "{", "Expected '{' after interface name");
@@ -683,8 +707,8 @@ std::unique_ptr<ASTNode> Parser::parseInterfaceMember() {
 
     // Create and return a property declaration node
     return std::make_unique<PropertyDeclarationNode>(
-        propertyName, std::move(propertyType),
-        nullptr); // You may need to provide initializer if supported
+        propertyName, std::move(propertyType), nullptr,
+        previous().line); // You may need to provide initializer if supported
 
     throw std::runtime_error("Unsupported interface member type");
   }
@@ -741,8 +765,12 @@ std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
   }
 
   // Create and return the IfStatementNode
-  return std::make_unique<IfStatementNode>(
-      std::move(condition), std::move(thenBranch), std::move(elseBranch));
+  std::unique_ptr<IfStatementNode> node =
+      std::make_unique<IfStatementNode>(previous().line);
+  node->condition = std::move(condition);
+  node->thenBranch = std::move(thenBranch);
+  node->elseBranch = std::move(elseBranch);
+  return node;
 }
 
 std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
@@ -788,9 +816,13 @@ std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
   auto body = parseStatement();
 
   // Create and return the ForStatementNode
-  return std::make_unique<ForStatementNode>(
-      std::move(initializer), std::move(condition), std::move(increment),
-      std::move(body));
+  std::unique_ptr<ForStatementNode> node =
+      std::make_unique<ForStatementNode>(previous().line);
+  node->body = std::move(body);
+  node->condition = std::move(condition);
+  node->increment = std::move(increment);
+  node->initializer = std::move(initializer);
+  return node;
 }
 
 std::unique_ptr<StatementNode> Parser::parseExpressionStatement() {
@@ -802,7 +834,8 @@ std::unique_ptr<StatementNode> Parser::parseExpressionStatement() {
 
   // Return the expression wrapped in a StatementNode
   // Assuming you have a wrapper node for this purpose, or modify as needed
-  return std::make_unique<ExpressionStatementNode>(std::move(expr));
+  return std::make_unique<ExpressionStatementNode>(std::move(expr),
+                                                   previous().line);
 }
 
 std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
@@ -823,8 +856,11 @@ std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
   auto body = parseStatement();
 
   // Create and return the while statement node
-  return std::make_unique<WhileStatementNode>(std::move(condition),
-                                              std::move(body));
+  std::unique_ptr<WhileStatementNode> node =
+      std::make_unique<WhileStatementNode>(previous().line);
+  node->condition = std::move(condition);
+  node->body = std::move(body);
+  return node;
 }
 
 std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
@@ -852,7 +888,10 @@ std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
   consume(TokenType::Punctuator, ";", "Expected ';' after return statement");
 
   // Create and return the return statement node with the optional return value
-  return std::make_unique<ReturnStatementNode>(std::move(returnValue));
+  std::unique_ptr<ReturnStatementNode> node =
+      std::make_unique<ReturnStatementNode>(previous().line);
+  node->expression = std::move(returnValue);
+  return node;
 }
 
 std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement() {
@@ -864,7 +903,7 @@ std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement() {
   consume(TokenType::Punctuator, ";", "Expected ';' after break statement");
 
   // Create and return the break statement node
-  return std::make_unique<BreakStatementNode>();
+  return std::make_unique<BreakStatementNode>(previous().line);
 }
 
 std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement() {
@@ -876,7 +915,7 @@ std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement() {
   consume(TokenType::Punctuator, ";", "Expected ';' after continue statement");
 
   // Create and return the continue statement node
-  return std::make_unique<ContinueStatementNode>();
+  return std::make_unique<ContinueStatementNode>(previous().line);
 }
 
 std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
@@ -910,8 +949,11 @@ std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
   consume(TokenType::Punctuator, "}", "Expected '}' at the end of switch body");
 
   // Create and return the switch statement node
-  return std::make_unique<SwitchStatementNode>(std::move(controlExpression),
-                                               std::move(cases));
+  std::unique_ptr<SwitchStatementNode> node =
+      std::make_unique<SwitchStatementNode>(previous().line);
+  node->condition = std::move(controlExpression);
+  node->cases = std::move(cases);
+  return node;
 }
 
 std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
@@ -943,12 +985,15 @@ std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
 
   // Create the error object structure (assuming a constructor or similar method
   // exists)
-  auto errorObject =
-      std::make_unique<ErrorTypeNode>(errorVarName, "message", "errorCode");
+  auto errorObject = std::make_unique<ErrorTypeNode>(
+      errorVarName, "message", "errorCode", previous().line);
 
   // Create and return the try-catch statement node
-  return std::make_unique<TryCatchNode>(
-      std::move(tryBlock), std::move(errorObject), std::move(catchBlock));
+  std::unique_ptr<TryCatchNode> node =
+      std::make_unique<TryCatchNode>(previous().line);
+  node->catchBlock = std::move(catchBlock);
+  node->tryBlock = std::move(tryBlock);
+  return node;
 }
 
 std::unique_ptr<ExportNode> Parser::parseExportStatement() {
@@ -981,7 +1026,10 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement() {
   }
 
   // Create and return the export node
-  return std::make_unique<ExportNode>(std::move(exportItem));
+  std::unique_ptr<ExportNode> node =
+      std::make_unique<ExportNode>(previous().line);
+  node->exportItem = std::move(exportItem);
+  return node;
 }
 
 std::unique_ptr<ImportNode> Parser::parseImportStatement() {
@@ -1015,29 +1063,40 @@ std::unique_ptr<ImportNode> Parser::parseImportStatement() {
   consume(TokenType::Punctuator, ";", "Expected ';' after import statement");
 
   // Create and return the ImportNode
-  return std::make_unique<ImportNode>(moduleName, imports);
+  std::unique_ptr<ImportNode> node =
+      std::make_unique<ImportNode>(previous().line);
+  node->moduleName = std::move(moduleName);
+  node->imports = std::move(imports);
+  return node;
 }
 
 std::unique_ptr<CallExpressionNode>
-Parser::parseCallExpression(std::string callee) {
-  std::vector<std::unique_ptr<ASTNode>> arguments;
+Parser::parseCallExpression(std::unique_ptr<VariableExpressionNode> callee) {
+  std::vector<std::unique_ptr<ExpressionNode>> arguments;
   if (!check(TokenType::Punctuator, ")")) {
     do {
       arguments.push_back(parseExpression());
     } while (match(TokenType::Punctuator, ","));
   }
   consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
-  return std::make_unique<CallExpressionNode>(std::move(callee),
-                                              std::move(arguments));
+  std::unique_ptr<CallExpressionNode> node =
+      std::make_unique<CallExpressionNode>(previous().line);
+  node->callee = std::move(callee);
+  node->arguments = std::move(arguments);
+  return node;
 }
-
 std::unique_ptr<MemberAccessExpressionNode>
-Parser::parseMemberAccessExpression(std::string object) {
-  auto memberName =
-      consume(TokenType::Identifier, "", "Expected member name after '.'")
-          .value;
-  return std::make_unique<MemberAccessExpressionNode>(std::move(object),
-                                                      memberName);
+Parser::parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object) {
+  auto memberNameToken =
+      consume(TokenType::Identifier, "", "Expected member name after '.'");
+  std::string memberName = memberNameToken.value;
+
+  auto node =
+      std::make_unique<MemberAccessExpressionNode>(memberNameToken.line);
+  node->object = std::move(object);
+  node->memberName = std::move(memberName);
+
+  return node;
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
@@ -1051,7 +1110,8 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
       std::string paramName =
           consume(TokenType::Identifier, "", "Expected parameter name").value;
       // If your language supports types for parameters, parse the type here
-      parameters.push_back(std::make_unique<FunctionParameterNode>(paramName));
+      parameters.push_back(
+          std::make_unique<FunctionParameterNode>(paramName, previous().line));
     } while (match(TokenType::Punctuator, ","));
   }
 
@@ -1065,7 +1125,8 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
   auto functionNode = std::make_unique<FunctionNode>("", previous().line);
 
   // Wrap the FunctionNode in an ExpressionNode if necessary
-  return std::make_unique<FunctionExpressionNode>(std::move(functionNode));
+  return std::make_unique<FunctionExpressionNode>(std::move(functionNode),
+                                                  previous().line);
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
@@ -1090,7 +1151,7 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
     return std::make_unique<BooleanLiteralNode>(value, previous().line);
   } else if (match(TokenType::Keyword, "null")) {
     // For null literals
-    return std::make_unique<NullLiteralNode>();
+    return std::make_unique<NullLiteralNode>(previous().line);
   } else if (match(TokenType::Character, "")) {
     // For character literals
     char value = previous().value[0];
@@ -1120,7 +1181,10 @@ std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral() {
   consume(TokenType::Punctuator, "]",
           "Expected ']' at the end of array literal");
 
-  return std::make_unique<ArrayLiteralNode>(std::move(elements));
+  std::unique_ptr<ArrayLiteralNode> node =
+      std::make_unique<ArrayLiteralNode>(previous().line);
+  node->elements = std::move(elements);
+  return node;
 }
 
 std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
@@ -1152,7 +1216,10 @@ std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
   consume(TokenType::Punctuator, "}",
           "Expected '}' at the end of object literal");
 
-  return std::make_unique<ObjectLiteralNode>(std::move(properties));
+  std::unique_ptr<ObjectLiteralNode> node =
+      std::make_unique<ObjectLiteralNode>(previous().line);
+  node->properties = std::move(properties);
+  return node;
 }
 
 std::unique_ptr<TypeNode> Parser::parseType() {
@@ -1163,7 +1230,7 @@ std::unique_ptr<TypeNode> Parser::parseType() {
       typeName == "float" || typeName == "double" || typeName == "void" ||
       typeName == "wchar_t" || typeName == "string" || typeName == "Error" ||
       isClassName(typeName) || isInterfaceName(typeName)) {
-    return std::make_unique<TypeNode>(typeName);
+    return std::make_unique<TypeNode>(typeName, previous().line);
   } else {
     throw std::runtime_error("Unknown type: " + typeName);
   }
@@ -1193,8 +1260,10 @@ std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters() {
           consume(TokenType::Identifier, "", "Expected parameter name").value;
 
       // Create a FunctionParameterNode and add it to the parameters vector
-      parameters.push_back(
-          std::make_unique<FunctionParameterNode>(std::move(type), paramName));
+      std::unique_ptr<FunctionParameterNode> parameter =
+          std::make_unique<FunctionParameterNode>(paramName, previous().line);
+      parameter->type = std::move(type);
+      parameters.push_back(parameter);
     } while (match(TokenType::Punctuator, ","));
   }
 

@@ -5,64 +5,7 @@
 
 class NodeVisitor {
 public:
-  virtual void visit(BinaryExpressionNode &node) = 0;
-  virtual void visit(ProgramNode &node) = 0;
-  virtual void visit(ClassNode &node) = 0;
-  virtual void visit(FunctionNode &node) = 0;
-  virtual void visit(VariableDeclarationNode &node) = 0;
-  virtual void visit(StatementNode &node) = 0;
-  virtual void visit(ExpressionNode &node) = 0;
-  virtual void visit(ReturnStatementNode &node) = 0;
-  virtual void visit(IfStatementNode &node) = 0;
-  virtual void visit(ForStatementNode &node) = 0;
-  virtual void visit(WhileStatementNode &node) = 0;
-  virtual void visit(BreakStatementNode &node) = 0;
-  virtual void visit(ContinueStatementNode &node) = 0;
-  virtual void visit(BlockStatementNode &node) = 0;
-  virtual void visit(CaseClauseNode &node) = 0;
-  virtual void visit(SwitchStatementNode &node) = 0;
-  virtual void visit(LiteralNode &node) = 0;
-  virtual void visit(UnaryExpressionNode &node) = 0;
-  virtual void visit(CallExpressionNode &node) = 0;
-  virtual void visit(AssignmentExpressionNode &node) = 0;
-  virtual void visit(MemberAccessExpressionNode &node) = 0;
-  virtual void visit(ConditionalExpressionNode &node) = 0;
-  virtual void visit(StringLiteralNode &node) = 0;
-  virtual void visit(NumberLiteralNode &node) = 0;
-  virtual void visit(BooleanLiteralNode &node) = 0;
-  virtual void visit(NullLiteralNode &node) = 0;
-  virtual void visit(ArrayLiteralNode &node) = 0;
-  virtual void visit(ObjectLiteralNode &node) = 0;
-  virtual void visit(TemplateLiteralNode &node) = 0;
-  virtual void visit(TypeNode &node) = 0;
-  virtual void visit(FunctionParameterNode &node) = 0;
-  virtual void visit(ImportNode &node) = 0;
-  virtual void visit(ExportNode &node) = 0;
-  virtual void visit(TryCatchNode &node) = 0;
-  virtual void visit(AsyncFunctionNode &node) = 0;
-  virtual void visit(AwaitExpressionNode &node) = 0;
-  virtual void visit(InterfaceNode &node) = 0;
-  virtual void visit(NullReferenceNode &node) = 0;
-  virtual void visit(ConsoleLogNode &node) = 0;
-  virtual void visit(InputStatementNode &node) = 0;
-  virtual void visit(VariableExpressionNode &node) = 0;
-  virtual void visit(AndExpressionNode &node) = 0;
-  virtual void visit(EqualityExpressionNode &node) = 0;
-  virtual void visit(ComparisonExpressionNode &node) = 0;
-  virtual void visit(AdditionExpressionNode &node) = 0;
-  virtual void visit(SubtractionExpressionNode &node) = 0;
-  virtual void visit(MultiplicationExpressionNode &node) = 0;
-  virtual void visit(DivisionExpressionNode &node) = 0;
-  virtual void visit(CharLiteralNode &node) = 0;
-  virtual void visit(PropertyDeclarationNode &node) = 0;
-  virtual void visit(ConstructorNode &node) = 0;
-  virtual void visit(ExpressionStatementNode &node) = 0;
-  virtual void visit(ErrorTypeNode &node) = 0;
-  virtual void visit(FunctionExpressionNode &node) = 0;
-  virtual void visit(FloatingPointLiteralNode &node) = 0;
-  virtual void visit(IntegerLiteralNode &node) = 0;
-  virtual void visit(CharacterLiteralNode &node) = 0;
-  virtual void visit(TemplateNode &node) = 0;
+  virtual void visit(ASTNode &node) = 0;
 };
 
 class ASTNode {
@@ -81,15 +24,12 @@ private:
 class ProgramNode : public ASTNode {
 public:
   ProgramNode(int line) : ASTNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::vector<std::unique_ptr<ASTNode>> children;
 };
 
 class BlockStatementNode : public StatementNode {
 public:
   BlockStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::vector<std::unique_ptr<StatementNode>> statements;
 };
@@ -97,7 +37,6 @@ public:
 class ClassNode : public ASTNode {
 public:
   ClassNode(const std::string &name, int line) : ASTNode(line), name(name) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string name;
   std::vector<std::unique_ptr<ASTNode>> members;
@@ -107,7 +46,6 @@ class VariableDeclarationNode : public StatementNode {
 public:
   VariableDeclarationNode(const std::string &name, int line)
       : StatementNode(line), name(name) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
   std::string name;
   std::unique_ptr<ExpressionNode> initializer;
 };
@@ -115,7 +53,6 @@ public:
 class FunctionNode : public ASTNode {
 public:
   FunctionNode(const std::string &name, int line) : ASTNode(line), name(name) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string name;
   std::vector<std::unique_ptr<ASTNode>> parameters;
@@ -125,19 +62,16 @@ public:
 class StatementNode : public ASTNode {
 public:
   StatementNode(int line) : ASTNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class ExpressionNode : public ASTNode {
 public:
   ExpressionNode(int line) : ASTNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class ReturnStatementNode : public StatementNode {
 public:
   ReturnStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> expression;
 };
@@ -145,43 +79,38 @@ public:
 class IfStatementNode : public StatementNode {
 public:
   IfStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> condition;
-  std::unique_ptr<StatementNode> thenBranch;
+  std::unique_ptr<ASTNode> thenBranch;
   std::unique_ptr<StatementNode> elseBranch;
 };
 
 class ForStatementNode : public StatementNode {
 public:
   ForStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
-  std::unique_ptr<StatementNode> initializer;
+  std::unique_ptr<ASTNode> initializer;
   std::unique_ptr<ExpressionNode> condition;
   std::unique_ptr<ExpressionNode> increment;
-  std::unique_ptr<StatementNode> body;
+  std::unique_ptr<ASTNode> body;
 };
 
 class WhileStatementNode : public StatementNode {
 public:
   WhileStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> condition;
-  std::unique_ptr<StatementNode> body;
+  std::unique_ptr<ASTNode> body;
 };
 
 class BreakStatementNode : public StatementNode {
 public:
   BreakStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class ContinueStatementNode : public StatementNode {
 public:
   ContinueStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class CaseClauseNode : public ASTNode {
@@ -199,8 +128,6 @@ public:
       : ASTNode(line), caseExpression(nullptr),
         statements(std::move(statements)), isDefault(true) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<ExpressionNode> caseExpression;
   std::vector<std::unique_ptr<StatementNode>> statements;
   bool isDefault;
@@ -209,7 +136,6 @@ public:
 class SwitchStatementNode : public StatementNode {
 public:
   SwitchStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> condition;
   std::vector<std::unique_ptr<CaseClauseNode>> cases;
@@ -219,7 +145,6 @@ class BinaryExpressionNode : public ExpressionNode {
 public:
   BinaryExpressionNode(const std::string &op, int line)
       : ExpressionNode(line), op(op) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
   std::unique_ptr<ExpressionNode> left;
   std::unique_ptr<ExpressionNode> right;
   std::string op; // Operator
@@ -229,7 +154,6 @@ class LiteralNode : public ExpressionNode {
 public:
   LiteralNode(const std::string &value, int line)
       : ExpressionNode(line), value(value) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string value;
 };
@@ -238,7 +162,6 @@ class UnaryExpressionNode : public ExpressionNode {
 public:
   UnaryExpressionNode(const std::string &op, int line)
       : ExpressionNode(line), op(op) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string op; // Operator, e.g., "-", "!"
   std::unique_ptr<ExpressionNode> operand;
@@ -247,7 +170,6 @@ public:
 class CallExpressionNode : public ExpressionNode {
 public:
   CallExpressionNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> callee;
   std::vector<std::unique_ptr<ExpressionNode>> arguments;
@@ -257,7 +179,6 @@ class AssignmentExpressionNode : public ExpressionNode {
 public:
   AssignmentExpressionNode(const std::string &op, int line)
       : ExpressionNode(line), op(op) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, e.g., "=", "+=", etc.
@@ -267,7 +188,6 @@ public:
 class MemberAccessExpressionNode : public ExpressionNode {
 public:
   MemberAccessExpressionNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> object;
   std::string memberName;
@@ -276,7 +196,6 @@ public:
 class ConditionalExpressionNode : public ExpressionNode {
 public:
   ConditionalExpressionNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> condition;
   std::unique_ptr<ExpressionNode> trueExpr;
@@ -287,7 +206,6 @@ class StringLiteralNode : public ExpressionNode {
 public:
   StringLiteralNode(const std::string &value, int line)
       : ExpressionNode(line), value(value) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string value;
 };
@@ -296,7 +214,6 @@ class NumberLiteralNode : public ExpressionNode {
 public:
   NumberLiteralNode(const std::string &value, int line)
       : ExpressionNode(line), value(value) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string value; // Representing the numeric value as a string
 };
@@ -305,7 +222,6 @@ class BooleanLiteralNode : public ExpressionNode {
 public:
   BooleanLiteralNode(bool value, int line)
       : ExpressionNode(line), value(value) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   bool value;
 };
@@ -313,13 +229,11 @@ public:
 class NullLiteralNode : public ExpressionNode {
 public:
   NullLiteralNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class ArrayLiteralNode : public ExpressionNode {
 public:
   ArrayLiteralNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::vector<std::unique_ptr<ExpressionNode>> elements;
 };
@@ -327,15 +241,14 @@ public:
 class ObjectLiteralNode : public ExpressionNode {
 public:
   ObjectLiteralNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
-  std::map<std::string, std::unique_ptr<ExpressionNode>> properties;
+  std::vector<std::pair<std::string, std::unique_ptr<ExpressionNode>>>
+      properties;
 };
 
 class TemplateLiteralNode : public ExpressionNode {
 public:
   TemplateLiteralNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::vector<std::unique_ptr<ExpressionNode>>
       parts; // Could be string literals and expressions
@@ -345,7 +258,6 @@ class TypeNode : public ASTNode {
 public:
   TypeNode(const std::string &typeName, int line)
       : ASTNode(line), typeName(typeName) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string typeName;
 };
@@ -354,7 +266,6 @@ class FunctionParameterNode : public ASTNode {
 public:
   FunctionParameterNode(const std::string &name, int line)
       : ASTNode(line), name(name) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string name;
   std::unique_ptr<TypeNode> type; // If your language supports type annotations
@@ -363,7 +274,6 @@ public:
 class ImportNode : public ASTNode {
 public:
   ImportNode(int line) : ASTNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string moduleName;
   std::vector<std::string> imports;
@@ -372,7 +282,6 @@ public:
 class ExportNode : public ASTNode {
 public:
   ExportNode(int line) : ASTNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ASTNode> exportItem;
 };
@@ -380,11 +289,10 @@ public:
 class TryCatchNode : public StatementNode {
 public:
   TryCatchNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
-  std::unique_ptr<StatementNode> tryBlock;
-  std::string catchVariable;
-  std::unique_ptr<StatementNode> catchBlock;
+  std::unique_ptr<BlockStatementNode> tryBlock;
+  std::unique_ptr<ErrorTypeNode> catchVariable;
+  std::unique_ptr<BlockStatementNode> catchBlock;
 };
 
 class EqualityExpressionNode : public ExpressionNode {
@@ -394,8 +302,6 @@ public:
                          std::unique_ptr<ExpressionNode> right, int line)
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, e.g., "==" or "!="
@@ -411,8 +317,6 @@ public:
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, e.g., "||"
   std::unique_ptr<ExpressionNode> right;
@@ -424,8 +328,6 @@ public:
                     std::unique_ptr<ExpressionNode> right, int line)
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, e.g., "&&"
@@ -439,8 +341,6 @@ public:
   VariableExpressionNode(const std::string &name, int line)
       : ExpressionNode(line), name(name) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::string name; // The name of the variable
 };
 
@@ -448,13 +348,11 @@ class AsyncFunctionNode : public FunctionNode {
 public:
   AsyncFunctionNode(const std::string &name, int line)
       : FunctionNode(name, line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class AwaitExpressionNode : public ExpressionNode {
 public:
   AwaitExpressionNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> expression;
 };
@@ -463,7 +361,6 @@ class InterfaceNode : public ASTNode {
 public:
   InterfaceNode(const std::string &name, int line)
       : ASTNode(line), name(name) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string name;
   std::vector<std::unique_ptr<ASTNode>> members;
@@ -472,13 +369,11 @@ public:
 class NullReferenceNode : public ExpressionNode {
 public:
   NullReferenceNode(int line) : ExpressionNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 };
 
 class ConsoleLogNode : public StatementNode {
 public:
   ConsoleLogNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> expression;
 };
@@ -486,7 +381,6 @@ public:
 class InputStatementNode : public StatementNode {
 public:
   InputStatementNode(int line) : StatementNode(line) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<VariableDeclarationNode> variable;
 };
@@ -498,8 +392,6 @@ public:
                            std::unique_ptr<ExpressionNode> right, int line)
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, e.g., "<", ">", "<=", ">="
@@ -514,8 +406,6 @@ public:
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, expected to be "+"
   std::unique_ptr<ExpressionNode> right;
@@ -528,8 +418,6 @@ public:
                             std::unique_ptr<ExpressionNode> right, int line)
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, expected to be "-"
@@ -544,8 +432,6 @@ public:
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, expected to be "*"
   std::unique_ptr<ExpressionNode> right;
@@ -559,8 +445,6 @@ public:
       : ExpressionNode(line), left(std::move(left)), op(op),
         right(std::move(right)) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<ExpressionNode> left;
   std::string op; // Operator, expected to be "/"
   std::unique_ptr<ExpressionNode> right;
@@ -571,8 +455,6 @@ public:
   CharLiteralNode(char value, int line) : ExpressionNode(line), value(value) {}
 
   // Accept method for the visitor pattern.
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   char value; // The character value of the literal.
 };
 
@@ -583,8 +465,6 @@ public:
                           std::unique_ptr<ExpressionNode> initializer, int line)
       : StatementNode(line), name(name), type(std::move(type)),
         initializer(std::move(initializer)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string name;
   std::unique_ptr<TypeNode> type;
@@ -598,8 +478,6 @@ public:
       std::unique_ptr<BlockStatementNode> body, int line)
       : ASTNode(line), parameters(std::move(parameters)),
         body(std::move(body)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
   std::unique_ptr<BlockStatementNode> body;
@@ -622,7 +500,6 @@ public:
         errorCode(errorCode) {}
 
   // Accept method for the visitor pattern.
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::string varName;
   std::string message;
@@ -634,15 +511,12 @@ public:
   FunctionExpressionNode(std::unique_ptr<FunctionNode> function, int line)
       : ExpressionNode(line), function(std::move(function)) {}
 
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
-
   std::unique_ptr<FunctionNode> function;
 };
 class FloatingPointLiteralNode : public ExpressionNode {
 public:
   FloatingPointLiteralNode(const std::string &value, int line)
       : ExpressionNode(line), value(std::stof(value)) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   float value;
 };
@@ -651,7 +525,6 @@ class IntegerLiteralNode : public ExpressionNode {
 public:
   IntegerLiteralNode(const std::string &value, int line)
       : ExpressionNode(line), value(std::stoi(value)) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   int value;
 };
@@ -660,7 +533,6 @@ class CharacterLiteralNode : public ExpressionNode {
 public:
   CharacterLiteralNode(char value, int line)
       : ExpressionNode(line), value(value) {}
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   char value;
 };
@@ -670,8 +542,6 @@ public:
                std::unique_ptr<ASTNode> declaration, int line)
       : ASTNode(line), // Pass the line number to the ASTNode constructor
         params(std::move(params)), declaration(std::move(declaration)) {}
-
-  void accept(NodeVisitor &visitor) override { visitor.visit(*this); }
 
   std::vector<std::string> params;
   std::unique_ptr<ASTNode> declaration;
