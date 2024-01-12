@@ -129,3 +129,15 @@ TEST_F(TokenizerTest, TokenizesComplexSourceCode) {
   EXPECT_NE(classToken, tokens.end());
   EXPECT_EQ(classToken->type, TokenType::Declaration);
 }
+
+TEST_F(TokenizerTest, TokenizersVariableDeclaration) {
+  std::string source = "int myVar = 42;";
+
+  auto tokens = tokenizeSource(source);
+
+  // Example assertions (not exhaustive):
+  EXPECT_EQ(tokens[0].type, TokenType::Keyword);
+  EXPECT_EQ(tokens[1].type, TokenType::Identifier);
+  EXPECT_EQ(tokens[2].type, TokenType::Operator);
+  EXPECT_EQ(tokens[3].type, TokenType::Number);
+}

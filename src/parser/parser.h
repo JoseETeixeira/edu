@@ -632,7 +632,8 @@ Parser::parseVariableDeclaration(std::string type) {
   bool isConst = match(TokenType::Keyword, "const");
 
   // First, correctly parse the type
-  auto variableName = consume(TokenType::Identifier, "", "Expected type").value;
+  auto variableName =
+      consume(TokenType::Identifier, "", "Expected identifier").value;
   std::string typeName = type;
   std::cout << typeName << std::endl;
   if (!isType(typeName)) {
