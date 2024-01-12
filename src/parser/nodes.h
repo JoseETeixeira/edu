@@ -3,19 +3,12 @@
 #include <string>
 #include <vector>
 
-class NodeVisitor {
-public:
-  virtual void visit(ASTNode &node) = 0;
-};
-
 class ASTNode {
 public:
   ASTNode(int line) : line(line) {}
   virtual ~ASTNode() = default;
 
   int getLine() const { return line; }
-
-  virtual void accept(NodeVisitor &visitor) = 0;
 
 private:
   int line; // Line number in the source code
@@ -24,30 +17,13 @@ private:
 class ProgramNode : public ASTNode {
 public:
   ProgramNode(int line) : ASTNode(line) {}
+
   std::vector<std::unique_ptr<ASTNode>> children;
 };
 
-class BlockStatementNode : public StatementNode {
+class StatementNode : public ASTNode {
 public:
-  BlockStatementNode(int line) : StatementNode(line) {}
-
-  std::vector<std::unique_ptr<StatementNode>> statements;
-};
-
-class ClassNode : public ASTNode {
-public:
-  ClassNode(const std::string &name, int line) : ASTNode(line), name(name) {}
-
-  std::string name;
-  std::vector<std::unique_ptr<ASTNode>> members;
-};
-
-class VariableDeclarationNode : public StatementNode {
-public:
-  VariableDeclarationNode(const std::string &name, int line)
-      : StatementNode(line), name(name) {}
-  std::string name;
-  std::unique_ptr<ExpressionNode> initializer;
+  StatementNode(int line) : ASTNode(line) {}
 };
 
 class FunctionNode : public ASTNode {
@@ -59,14 +35,120 @@ public:
   std::unique_ptr<ASTNode> body;
 };
 
-class StatementNode : public ASTNode {
-public:
-  StatementNode(int line) : ASTNode(line) {}
-};
-
 class ExpressionNode : public ASTNode {
 public:
   ExpressionNode(int line) : ASTNode(line) {}
+};
+
+class ClassNode : public ASTNode {
+public:
+  ClassNode(const std::string &name, int line) : ASTNode(line), name(name) {}
+
+  std::string name;
+  std::vector<std::unique_ptr<ASTNode>> members;
+};
+
+class CaseClauseNode : public ASTNode {
+public:
+  // Constructor for a case clause with an expression
+  CaseClauseNode(std::unique_ptr<ExpressionNode> caseExpression,
+                 std::vector<std::unique_ptr<StatementNode>> statements,
+                 int line)
+      : ASTNode(line), caseExpression(std::move(caseExpression)),
+        statements(std::move(statements)), isDefault(false) {}
+
+  // Constructor for a default case clause
+  CaseClauseNode(std::vector<std::unique_ptr<StatementNode>> statements,
+                 int line)
+      : ASTNode(line), caseExpression(nullptr),
+        statements(std::move(statements)), isDefault(true) {}
+
+  std::unique_ptr<ExpressionNode> caseExpression;
+  std::vector<std::unique_ptr<StatementNode>> statements;
+  bool isDefault;
+};
+
+class TypeNode : public ASTNode {
+public:
+  TypeNode(const std::string &typeName, int line)
+      : ASTNode(line), typeName(typeName) {}
+
+  std::string typeName;
+};
+
+class FunctionParameterNode : public ASTNode {
+public:
+  FunctionParameterNode(const std::string &name, int line)
+      : ASTNode(line), name(name) {}
+
+  std::string name;
+  std::unique_ptr<TypeNode> type; // If your language supports type annotations
+};
+
+class ImportNode : public ASTNode {
+public:
+  ImportNode(int line) : ASTNode(line) {}
+
+  std::string moduleName;
+  std::vector<std::string> imports;
+};
+
+class ExportNode : public ASTNode {
+public:
+  ExportNode(int line) : ASTNode(line) {}
+
+  std::unique_ptr<ASTNode> exportItem;
+};
+
+class InterfaceNode : public ASTNode {
+public:
+  InterfaceNode(const std::string &name, int line)
+      : ASTNode(line), name(name) {}
+
+  std::string name;
+  std::vector<std::unique_ptr<ASTNode>> members;
+};
+
+class ErrorTypeNode : public ASTNode {
+public:
+  // Constructor: takes the variable name, message, error code, and line number.
+  ErrorTypeNode(const std::string &varName, const std::string &message,
+                const std::string &errorCode, int line)
+      : ASTNode(line), varName(varName), message(message),
+        errorCode(errorCode) {}
+
+  // Accept method for the visitor pattern.
+
+  std::string varName;
+  std::string message;
+  std::string errorCode;
+};
+
+class BlockStatementNode : public StatementNode {
+public:
+  BlockStatementNode(int line) : StatementNode(line) {}
+
+  std::vector<std::unique_ptr<StatementNode>> statements;
+};
+
+class ConstructorNode : public ASTNode {
+public:
+  ConstructorNode(
+      std::vector<std::unique_ptr<FunctionParameterNode>> parameters,
+      std::unique_ptr<BlockStatementNode> body, int line)
+      : ASTNode(line), parameters(std::move(parameters)),
+        body(std::move(body)) {}
+
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+  std::unique_ptr<BlockStatementNode> body;
+};
+
+class VariableDeclarationNode : public StatementNode {
+public:
+  VariableDeclarationNode(const std::string &name, int line)
+      : StatementNode(line), name(name) {}
+  std::string name;
+  std::unique_ptr<ExpressionNode> initializer;
 };
 
 class ReturnStatementNode : public StatementNode {
@@ -89,7 +171,7 @@ class ForStatementNode : public StatementNode {
 public:
   ForStatementNode(int line) : StatementNode(line) {}
 
-  std::unique_ptr<ASTNode> initializer;
+  std::unique_ptr<StatementNode> initializer;
   std::unique_ptr<ExpressionNode> condition;
   std::unique_ptr<ExpressionNode> increment;
   std::unique_ptr<ASTNode> body;
@@ -111,26 +193,6 @@ public:
 class ContinueStatementNode : public StatementNode {
 public:
   ContinueStatementNode(int line) : StatementNode(line) {}
-};
-
-class CaseClauseNode : public ASTNode {
-public:
-  // Constructor for a case clause with an expression
-  CaseClauseNode(std::unique_ptr<ExpressionNode> caseExpression,
-                 std::vector<std::unique_ptr<StatementNode>> statements,
-                 int line)
-      : ASTNode(line), caseExpression(std::move(caseExpression)),
-        statements(std::move(statements)), isDefault(false) {}
-
-  // Constructor for a default case clause
-  CaseClauseNode(std::vector<std::unique_ptr<StatementNode>> statements,
-                 int line)
-      : ASTNode(line), caseExpression(nullptr),
-        statements(std::move(statements)), isDefault(true) {}
-
-  std::unique_ptr<ExpressionNode> caseExpression;
-  std::vector<std::unique_ptr<StatementNode>> statements;
-  bool isDefault;
 };
 
 class SwitchStatementNode : public StatementNode {
@@ -254,43 +316,11 @@ public:
       parts; // Could be string literals and expressions
 };
 
-class TypeNode : public ASTNode {
-public:
-  TypeNode(const std::string &typeName, int line)
-      : ASTNode(line), typeName(typeName) {}
-
-  std::string typeName;
-};
-
-class FunctionParameterNode : public ASTNode {
-public:
-  FunctionParameterNode(const std::string &name, int line)
-      : ASTNode(line), name(name) {}
-
-  std::string name;
-  std::unique_ptr<TypeNode> type; // If your language supports type annotations
-};
-
-class ImportNode : public ASTNode {
-public:
-  ImportNode(int line) : ASTNode(line) {}
-
-  std::string moduleName;
-  std::vector<std::string> imports;
-};
-
-class ExportNode : public ASTNode {
-public:
-  ExportNode(int line) : ASTNode(line) {}
-
-  std::unique_ptr<ASTNode> exportItem;
-};
-
 class TryCatchNode : public StatementNode {
 public:
   TryCatchNode(int line) : StatementNode(line) {}
 
-  std::unique_ptr<BlockStatementNode> tryBlock;
+  std::unique_ptr<StatementNode> tryBlock;
   std::unique_ptr<ErrorTypeNode> catchVariable;
   std::unique_ptr<BlockStatementNode> catchBlock;
 };
@@ -355,15 +385,6 @@ public:
   AwaitExpressionNode(int line) : ExpressionNode(line) {}
 
   std::unique_ptr<ExpressionNode> expression;
-};
-
-class InterfaceNode : public ASTNode {
-public:
-  InterfaceNode(const std::string &name, int line)
-      : ASTNode(line), name(name) {}
-
-  std::string name;
-  std::vector<std::unique_ptr<ASTNode>> members;
 };
 
 class NullReferenceNode : public ExpressionNode {
@@ -471,39 +492,12 @@ public:
   std::unique_ptr<ExpressionNode> initializer;
 };
 
-class ConstructorNode : public ASTNode {
-public:
-  ConstructorNode(
-      std::vector<std::unique_ptr<FunctionParameterNode>> parameters,
-      std::unique_ptr<BlockStatementNode> body, int line)
-      : ASTNode(line), parameters(std::move(parameters)),
-        body(std::move(body)) {}
-
-  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
-  std::unique_ptr<BlockStatementNode> body;
-};
-
 class ExpressionStatementNode : public StatementNode {
 public:
   ExpressionStatementNode(std::unique_ptr<ExpressionNode> expression, int line)
       : StatementNode(line), expression(std::move(expression)) {}
 
   std::unique_ptr<ExpressionNode> expression;
-};
-
-class ErrorTypeNode : public ASTNode {
-public:
-  // Constructor: takes the variable name, message, error code, and line number.
-  ErrorTypeNode(const std::string &varName, const std::string &message,
-                const std::string &errorCode, int line)
-      : ASTNode(line), varName(varName), message(message),
-        errorCode(errorCode) {}
-
-  // Accept method for the visitor pattern.
-
-  std::string varName;
-  std::string message;
-  std::string errorCode;
 };
 
 class FunctionExpressionNode : public ExpressionNode {

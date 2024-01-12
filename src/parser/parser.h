@@ -107,7 +107,7 @@ private:
   std::unique_ptr<ExpressionNode> parseLiteral();
   std::unique_ptr<ArrayLiteralNode> parseArrayLiteral();
   std::unique_ptr<ObjectLiteralNode> parseObjectLiteral();
-  std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction();
+  std::unique_ptr<ExpressionNode> parseAnonymousFunction();
 
   std::unique_ptr<CallExpressionNode>
   parseCallExpression(std::unique_ptr<VariableExpressionNode> callee);
@@ -457,7 +457,7 @@ std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
   // Create and return a new ConsoleLogNode
   auto console_log_node = std::make_unique<ConsoleLogNode>(previous().line);
   console_log_node->expression = std::move(expression);
-  return;
+  return console_log_node;
 }
 
 std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
@@ -1263,7 +1263,7 @@ std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters() {
       std::unique_ptr<FunctionParameterNode> parameter =
           std::make_unique<FunctionParameterNode>(paramName, previous().line);
       parameter->type = std::move(type);
-      parameters.push_back(parameter);
+      parameters.push_back(std::move(parameter));
     } while (match(TokenType::Punctuator, ","));
   }
 
