@@ -635,7 +635,6 @@ Parser::parseVariableDeclaration(std::string type) {
   auto variableName =
       consume(TokenType::Identifier, "", "Expected identifier").value;
   std::string typeName = type;
-  std::cout << typeName << std::endl;
   if (!isType(typeName)) {
     throw std::runtime_error("Unknown type: " + typeName);
   }
@@ -1138,7 +1137,7 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
-  if (match(TokenType::Number, "")) {
+  if (previous().type == TokenType::Number) {
     // For numeric literals (integers, floats, doubles)
     std::string value = previous().value;
     if (value.find('.') != std::string::npos) {
@@ -1148,19 +1147,22 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
       // No decimal point, treat as an integer
       return std::make_unique<IntegerLiteralNode>(value, previous().line);
     }
-  } else if (match(TokenType::String, "")) {
+  } else if (previous().type == TokenType::String) {
     // For string literals
     return std::make_unique<StringLiteralNode>(previous().value,
                                                previous().line);
-  } else if (match(TokenType::Keyword, "true") ||
-             match(TokenType::Keyword, "false")) {
+  } else if ((previous().type == TokenType::Keyword &&
+              previous().value == "true") ||
+             (previous().type == TokenType::Keyword &&
+              previous().value == "false")) {
     // For boolean literals
     bool value = previous().value == "true";
     return std::make_unique<BooleanLiteralNode>(value, previous().line);
-  } else if (match(TokenType::Keyword, "null")) {
+  } else if ((previous().type == TokenType::Keyword &&
+              previous().value == "null")) {
     // For null literals
     return std::make_unique<NullLiteralNode>(previous().line);
-  } else if (match(TokenType::Character, "")) {
+  } else if ((previous().type == TokenType::Character)) {
     // For character literals
     char value = previous().value[0];
     return std::make_unique<CharacterLiteralNode>(value, previous().line);
@@ -1234,7 +1236,6 @@ std::unique_ptr<TypeNode> Parser::parseType() {
   auto typeToken = consume(TokenType::Identifier, "", "Expected a type");
 
   std::string typeName = typeToken.value;
-  std::cout << typeName << std::endl;
   if (typeName == "bool" || typeName == "char" || typeName == "int" ||
       typeName == "float" || typeName == "double" || typeName == "void" ||
       typeName == "wchar_t" || typeName == "string" || typeName == "Error" ||

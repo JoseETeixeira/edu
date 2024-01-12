@@ -6,7 +6,7 @@ class ParserTest : public ::testing::Test {
 protected:
 };
 
-TEST_F(ParserTest, TestVariableDeclaration) {
+TEST_F(ParserTest, ParseVariableDeclaration) {
   std::string source = "int myVar = 42;";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
