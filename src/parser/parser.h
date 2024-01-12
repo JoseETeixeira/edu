@@ -222,13 +222,15 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
 }
 
 std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
-  std::string paramName =
-      consume(TokenType::Identifier, "Expected parameter name", "").value;
   std::unique_ptr<TypeNode> paramType;
-  if (peek().type == TokenType::Identifier) {
+  if (isType(peek().value)) {
     // Parse parameter type if present
     paramType = parseType();
   }
+  std::cout << paramType->typeName << std::endl;
+  std::string paramName =
+      consume(TokenType::Identifier, "", "Expected parameter name").value;
+
   std::unique_ptr<FunctionParameterNode> parameter =
       std::make_unique<FunctionParameterNode>(paramName, previous().line);
   parameter->type = std::move(paramType);
@@ -621,22 +623,31 @@ std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration() {
   return std::make_unique<ConstructorNode>(std::move(parameters),
                                            std::move(body), previous().line);
 }
-
 std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
-  // Check if the function is asynchronous
-  bool isAsync = match(TokenType::Keyword, "async");
+  bool isAsync = false;
+  std::string returnType;
 
-  // Consume return type
-  std::cout << "Parsing return type " << peek().value << std::endl;
-  consume(TokenType::Keyword, "", "Expected return type");
+  // Check for 'async' keyword
+  if (peek().type == TokenType::Keyword && peek().value == "async") {
+    isAsync = true;
+    advance(); // Consume 'async'
+  }
+
+  // Check for return type
+  if (peek().type == TokenType::Keyword && isType(peek().value)) {
+    returnType = peek().value;
+    std::cout << "return type: " << returnType << std::endl;
+    advance(); // Consume return type
+  }
 
   // Consume 'function' keyword
-  std::cout << "Parsing function keyword " << peek().value << std::endl;
-  consume(TokenType::Keyword, "function", "Expected 'function' keyword");
+  consume(TokenType::Declaration, "function", "Expected 'function' keyword");
 
   // Get the function name
   std::string functionName =
-      consume(TokenType::Identifier, "Expected function name", "").value;
+      consume(TokenType::Identifier, "", "Expected function name").value;
+
+  std::cout << "functionName: " << functionName << std::endl;
 
   // Consume the opening parenthesis '(' of the parameter list
   consume(TokenType::Punctuator, "(", "Expected '(' after function name");
@@ -651,13 +662,21 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
 
   // Consume the closing parenthesis ')' of the parameter list
   consume(TokenType::Punctuator, ")", "Expected ')' after parameters");
-
+  std::cout << "Here" << std::endl;
   // Parse the function body
   auto body = parseBlockStatement();
 
   // Create and return a new FunctionNode
-  return std::make_unique<FunctionNode>(functionName, previous().line);
+  auto functionNode =
+      std::make_unique<FunctionNode>(functionName, previous().line);
+  functionNode->parameters = std::move(parameters);
+  functionNode->body = std::move(body);
+  functionNode->returnType = returnType;
+  functionNode->isAsync = isAsync;
+
+  return functionNode;
 }
+
 std::unique_ptr<VariableDeclarationNode>
 Parser::parseVariableDeclaration(std::string type) {
   bool isConst = match(TokenType::Keyword, "const");
@@ -1263,7 +1282,7 @@ std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
 }
 
 std::unique_ptr<TypeNode> Parser::parseType() {
-  auto typeToken = consume(TokenType::Identifier, "", "Expected a type");
+  auto typeToken = consume(TokenType::Keyword, "", "Expected a type");
 
   std::string typeName = typeToken.value;
   if (typeName == "bool" || typeName == "char" || typeName == "int" ||

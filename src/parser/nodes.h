@@ -25,14 +25,39 @@ class StatementNode : public ASTNode {
 public:
   StatementNode(int line) : ASTNode(line) {}
 };
+class TypeNode : public ASTNode {
+public:
+  TypeNode(const std::string &typeName, int line)
+      : ASTNode(line), typeName(typeName) {}
+
+  std::string typeName;
+};
+
+class FunctionParameterNode : public ASTNode {
+public:
+  FunctionParameterNode(const std::string &name, int line)
+      : ASTNode(line), name(name) {}
+
+  std::string name;
+  std::unique_ptr<TypeNode> type; // If your language supports type annotations
+};
+
+class BlockStatementNode : public StatementNode {
+public:
+  BlockStatementNode(int line) : StatementNode(line) {}
+
+  std::vector<std::unique_ptr<StatementNode>> statements;
+};
 
 class FunctionNode : public ASTNode {
 public:
   FunctionNode(const std::string &name, int line) : ASTNode(line), name(name) {}
 
   std::string name;
-  std::vector<std::unique_ptr<ASTNode>> parameters;
-  std::unique_ptr<ASTNode> body;
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+  std::string returnType;
+  bool isAsync;
+  std::unique_ptr<BlockStatementNode> body;
 };
 
 class ExpressionNode : public ASTNode {
@@ -66,23 +91,6 @@ public:
   std::unique_ptr<ExpressionNode> caseExpression;
   std::vector<std::unique_ptr<StatementNode>> statements;
   bool isDefault;
-};
-
-class TypeNode : public ASTNode {
-public:
-  TypeNode(const std::string &typeName, int line)
-      : ASTNode(line), typeName(typeName) {}
-
-  std::string typeName;
-};
-
-class FunctionParameterNode : public ASTNode {
-public:
-  FunctionParameterNode(const std::string &name, int line)
-      : ASTNode(line), name(name) {}
-
-  std::string name;
-  std::unique_ptr<TypeNode> type; // If your language supports type annotations
 };
 
 class ImportNode : public ASTNode {
@@ -122,13 +130,6 @@ public:
   std::string varName;
   std::string message;
   std::string errorCode;
-};
-
-class BlockStatementNode : public StatementNode {
-public:
-  BlockStatementNode(int line) : StatementNode(line) {}
-
-  std::vector<std::unique_ptr<StatementNode>> statements;
 };
 
 class ConstructorNode : public ASTNode {
