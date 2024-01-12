@@ -60,6 +60,21 @@ private:
   bool isClassName(const std::string &name);
   bool isInterfaceName(const std::string &name);
 
+  Token peekNext() const {
+    if (current + 1 < tokens.size()) {
+      return tokens[current + 1];
+    }
+    return tokens
+        .back(); // Return the last token if there are no more tokens ahead
+  }
+
+  Token peekNextNext() const {
+    if (current + 2 >= tokens.size()) {
+      return tokens.back(); // Return the last token if out of range
+    }
+    return tokens[current + 2];
+  }
+
   // Main Parsing Methods
   std::unique_ptr<ASTNode> parseDeclaration();
   std::unique_ptr<ASTNode> parseStatement();
@@ -72,6 +87,7 @@ private:
   parseVariableDeclaration(std::string type);
   std::unique_ptr<InterfaceNode> parseInterfaceDeclaration();
   std::unique_ptr<TemplateNode> parseTemplateDeclaration();
+  std::unique_ptr<FunctionParameterNode> parseFunctionParameter();
 
   // Statement Parsing
   std::unique_ptr<ASTNode> parseClassMember();
@@ -148,6 +164,8 @@ std::unique_ptr<ProgramNode> Parser::parse() {
 // Main Parsing Methods
 
 std::unique_ptr<ASTNode> Parser::parseDeclaration() {
+  std::cout << peek().value << std::endl;
+  std::cout << peekNext().value << std::endl;
   if (match(TokenType::Keyword, "export")) {
     auto exportedItem = parseDeclaration();
     std::unique_ptr<ExportNode> node =
@@ -158,10 +176,13 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
     return parseTemplateDeclaration();
   } else if (match(TokenType::Keyword, "class")) {
     return parseClassDeclaration();
-  } else if (match(TokenType::Keyword, "function")) {
+  } else if (peek().type == TokenType::Keyword &&
+             peekNext().value == "function") {
+    std::cout << "Parsing function" << std::endl;
     return parseFunctionDeclaration();
-  } else if (match(TokenType::Keyword, "async")) {
-    // Handle async functions
+  } else if (peek().type == TokenType::Keyword && peek().value == "async" &&
+             peekNext().value == "function") {
+    std::cout << "Parsing async function" << std::endl;
     return parseFunctionDeclaration();
   } else if (match(TokenType::Keyword, "interface")) {
     return parseInterfaceDeclaration();
@@ -198,6 +219,20 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
     return parseVariableDeclaration(previous().value);
   }
   return parseStatement();
+}
+
+std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
+  std::string paramName =
+      consume(TokenType::Identifier, "Expected parameter name", "").value;
+  std::unique_ptr<TypeNode> paramType;
+  if (peek().type == TokenType::Identifier) {
+    // Parse parameter type if present
+    paramType = parseType();
+  }
+  std::unique_ptr<FunctionParameterNode> parameter =
+      std::make_unique<FunctionParameterNode>(paramName, previous().line);
+  parameter->type = std::move(paramType);
+  return parameter;
 }
 
 std::unique_ptr<ASTNode> Parser::parseStatement() {
@@ -591,7 +626,12 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   // Check if the function is asynchronous
   bool isAsync = match(TokenType::Keyword, "async");
 
+  // Consume return type
+  std::cout << "Parsing return type " << peek().value << std::endl;
+  consume(TokenType::Keyword, "", "Expected return type");
+
   // Consume 'function' keyword
+  std::cout << "Parsing function keyword " << peek().value << std::endl;
   consume(TokenType::Keyword, "function", "Expected 'function' keyword");
 
   // Get the function name
@@ -605,16 +645,7 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
   if (!check(TokenType::Punctuator, ")")) {
     do {
-      std::string paramName =
-          consume(TokenType::Identifier, "Expected parameter name", "").value;
-      std::unique_ptr<TypeNode> paramType;
-      if (peek().type == TokenType::Identifier) {
-        // Parse parameter type if present
-        paramType = parseType();
-      }
-      std::unique_ptr<FunctionParameterNode> parameter =
-          std::make_unique<FunctionParameterNode>(paramName, previous().line);
-      parameter->type = std::move(paramType);
+      parameters.push_back(parseFunctionParameter());
     } while (match(TokenType::Punctuator, ","));
   }
 
