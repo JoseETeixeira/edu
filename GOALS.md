@@ -20,7 +20,7 @@ NULL -> I don't want to treat 0 as NULL, it should just be a null pointer, also 
 
 Template Syntax -> I want to define templates as its done in typescript
 
-printing -> I don't want to use cout and endline, instead I want to use console.log()
+printing -> I don't want to use cout and endline, instead I want to use print()
 
 export keyword -> I want to be able to export types, functions, interfaces, etc to be used by other files, it should be used as "exports ..."
 

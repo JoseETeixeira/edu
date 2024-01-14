@@ -129,8 +129,8 @@ TEST_F(ParserTest, ParseStringVariableDeclaration) {
 // Function Declaration Tests
 TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
   std::string source = R"(
-    void function myFunction(int param1, float param2) {
-      // Function body
+    void function myFunction(int a, float b) {
+      print(a+b);
     }
   )";
   Tokenizer tokenizer(source);

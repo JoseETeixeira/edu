@@ -67,7 +67,7 @@
 
 - **Description**: Simplify printing to the console.
 - **Specification**:
-  - Use `console.log()` for standard output.
+  - Use `print()` for standard output.
   - Supports string interpolation and formatting.
 
 ### 10. `export` Keyword

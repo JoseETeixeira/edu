@@ -208,7 +208,7 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
     return parseImportStatement();
   } else if (match(TokenType::Keyword, "null")) {
     return parseNullReference();
-  } else if (match(TokenType::Keyword, "console.log")) {
+  } else if (match(TokenType::Keyword, "print")) {
     return parseConsoleLog();
   } else if (match(TokenType::Keyword, "await")) {
     return parseAwaitExpression();
@@ -435,13 +435,29 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
 
     if (match(TokenType::Punctuator, "(")) {
       // It's a function call
-      return parseCallExpression(std::make_unique<VariableExpressionNode>(
-          identifier, previous().line));
+      std::vector<std::unique_ptr<ExpressionNode>> arguments;
+      if (!check(TokenType::Punctuator, ")")) {
+        do {
+          arguments.push_back(parseExpression());
+        } while (match(TokenType::Punctuator, ","));
+      }
+      consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
+      std::unique_ptr<CallExpressionNode> callNode =
+          std::make_unique<CallExpressionNode>(previous().line);
+      callNode->arguments = std::move(arguments);
+      callNode->callee =
+          std::make_unique<VariableExpressionNode>(identifier, previous().line);
+      return callNode;
     } else if (match(TokenType::Punctuator, ".")) {
       // It's a member access
-      return parseMemberAccessExpression(
-          std::make_unique<VariableExpressionNode>(identifier,
-                                                   previous().line));
+      consume(TokenType::Identifier, "", "Expected member name after '.'");
+      std::string memberName = previous().value;
+      std::unique_ptr<MemberAccessExpressionNode> memberAccessNode =
+          std::make_unique<MemberAccessExpressionNode>(previous().line);
+      memberAccessNode->memberName = memberName;
+      memberAccessNode->object =
+          std::make_unique<VariableExpressionNode>(identifier, previous().line);
+      return memberAccessNode;
     }
 
     // Just an identifier
@@ -452,6 +468,8 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
   } else if (match(TokenType::Punctuator, "{")) {
     return parseObjectLiteral();
   } else if (match(TokenType::Keyword, "function")) {
+    return parseAnonymousFunction();
+  } else if (peek().value == "new") {
     return parseAnonymousFunction();
   } else {
     throw std::runtime_error("Unexpected token in primary expression");
@@ -480,15 +498,14 @@ bool Parser::isType(const std::string &keyword) {
 }
 
 std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
-  // Ensure the current token is the 'console.log' keyword
-  consume(TokenType::Keyword, "console.log", "Expected 'console.log'");
+  // Ensure the current token is the 'print' keyword
+  consume(TokenType::Keyword, "print", "Expected 'print'");
 
   // Parse the expression to be logged
   auto expression = parseExpression();
 
-  // Consume the semicolon at the end of the console.log statement
-  consume(TokenType::Punctuator, ";",
-          "Expected ';' after console.log statement");
+  // Consume the semicolon at the end of the print statement
+  consume(TokenType::Punctuator, ";", "Expected ';' after print statement");
 
   // Create and return a new ConsoleLogNode
   auto console_log_node = std::make_unique<ConsoleLogNode>(previous().line);

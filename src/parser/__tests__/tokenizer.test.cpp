@@ -99,12 +99,12 @@ TEST_F(TokenizerTest, TokenizesComplexSourceCode) {
 
     class MyClass {
       constructor(int a, float b) {
-        console.log("Constructor");
+        print("Constructor");
       }
 
       async int asyncMethod() {
         int result = await asyncFunction();
-        console.log(result);
+        print(result);
       }
     }
 

@@ -24,7 +24,7 @@ function_declaration ::= ['export'] type identifier '(' [parameters] ')' '{' { s
 parameters           ::= parameter { ',' parameter }
 parameter            ::= type identifier
 statement            ::= (variable_declaration | expression | console_log) ';'
-console_log          ::= 'console.log' '(' expression ')'
+console_log          ::= 'print' '(' expression ')'
 ```
 
 #### 4. Classes and Inheritance
@@ -92,7 +92,7 @@ null_reference ::= identifier '=' 'null' ';'
 #### 13. Printing to Console
 
 ```
-console_log ::= 'console.log' '(' expression ')' ';'
+console_log ::= 'print' '(' expression ')' ';'
 ```
 
 #### 14. Receiving Input

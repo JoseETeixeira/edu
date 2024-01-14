@@ -91,7 +91,7 @@ private:
         "true",     "false",  "try",     "catch", "import",    "from",
         "template", "copy",   "for",     "while", "if",        "else",
         "switch",   "case",   "default", "break", "continue",  "return",
-        "try",      "catch",  "throw"
+        "try",      "catch",  "throw",   "print"
         // Add other keywords specific to your language
     };
 

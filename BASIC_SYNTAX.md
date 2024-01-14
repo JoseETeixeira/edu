@@ -27,7 +27,7 @@ The `export` keyword is used to make functions available for import. Type is any
 ```
 export Type function functionName(Type parameter1, Type parameter2) {
   // Function body
-  console.log("Function called");
+  print("Function called");
 }
 ```
 
@@ -91,7 +91,7 @@ Async functions and await are used for handling asynchronous operations.
 ```
 async Type function asyncFunction() {
   AsyncFunctionType result = await anotherAsyncFunction();
-  console.log(result);
+  print(result);
 }
 ```
 
@@ -140,10 +140,10 @@ Type nullableVariable = null;
 
 ### 13. Printing to Console
 
-The `console.log()` function is used for printing.
+The `print()` function is used for printing.
 
 ```
-console.log("This is a message");
+print("This is a message");
 ```
 
 ### 14. Receiving input
