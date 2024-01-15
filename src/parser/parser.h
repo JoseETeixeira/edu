@@ -765,8 +765,7 @@ std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration()
   if (match(TokenType::Operator, "="))
   {
     auto expr = parseExpression(); // Returns std::unique_ptr<ASTNode>
-    initializer = std::unique_ptr<ExpressionNode>(
-        dynamic_cast<ExpressionNode *>(expr.release()));
+    initializer = std::unique_ptr<ExpressionNode>(expr.release());
     if (!initializer)
     {
       std::cout << "Expected expression for initializer" << std::endl;
