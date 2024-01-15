@@ -243,3 +243,74 @@ TEST_F(ParserTest, ParseFunctionComplexBody)
     auto ifStatementNode = dynamic_cast<IfStatementNode *>(bodyNode->statements[1].get());
     ASSERT_NE(ifStatementNode, nullptr) << "Second statement should be an IfStatementNode";
 }
+
+// Class declaration tests
+
+TEST_F(ParserTest, ParseBasicClassDeclaration)
+{
+    std::string source = R"(
+    class MyClass {
+      // Class body
+    }
+  )";
+    Tokenizer tokenizer(source);
+    const auto &tokens = tokenizer.tokenize();
+
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    ASSERT_NE(program->children.size(), 0) << "Program should have children nodes";
+
+    auto classNode = dynamic_cast<ClassNode *>(program->children[0].get());
+    ASSERT_NE(classNode, nullptr) << "First child should be a ClassNode";
+    ASSERT_EQ(classNode->name, "MyClass") << "Class name should be 'MyClass'";
+}
+
+TEST_F(ParserTest, ParseClassWithProperties)
+{
+    std::string source = R"(
+    class MyClass {
+      int myProperty;
+    }
+  )";
+    Tokenizer tokenizer(source);
+    const auto &tokens = tokenizer.tokenize();
+
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    auto classNode = dynamic_cast<ClassNode *>(program->children[0].get());
+    ASSERT_NE(classNode, nullptr) << "First child should be a ClassNode";
+
+    // Assuming the class has a list of property nodes
+    ASSERT_GT(classNode->members.size(), 0) << "Class should have properties";
+    auto propertyNode = dynamic_cast<VariableDeclarationNode *>(classNode->members[0].get());
+    ASSERT_NE(propertyNode, nullptr) << "Property should be a PropertyNode";
+    ASSERT_EQ(propertyNode->name, "myProperty") << "Property name should be 'myProperty'";
+    ASSERT_EQ(propertyNode->typeName, "int") << "Property type should be 'int'";
+}
+
+TEST_F(ParserTest, ParseClassWithMethods)
+{
+    std::string source = R"(
+    class MyClass {
+      void myMethod() {
+        // Method body
+      }
+    }
+  )";
+    Tokenizer tokenizer(source);
+    const auto &tokens = tokenizer.tokenize();
+
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    auto classNode = dynamic_cast<ClassNode *>(program->children[0].get());
+    ASSERT_NE(classNode, nullptr) << "First child should be a ClassNode";
+
+    // Assuming the class has a list of method nodes
+    ASSERT_GT(classNode->members.size(), 0) << "Class should have methods";
+    auto methodNode = dynamic_cast<FunctionNode *>(classNode->members[0].get());
+    ASSERT_NE(methodNode, nullptr) << "Method should be a MethodNode";
+    ASSERT_EQ(methodNode->name, "myMethod") << "Method name should be 'myMethod'";
+}
