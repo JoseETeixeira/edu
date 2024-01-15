@@ -4,7 +4,8 @@
 #include <stdexcept>
 #include <vector>
 
-class Parser {
+class Parser
+{
 public:
   Parser(const std::vector<Token> &tokens) : tokens(tokens), current(0) {}
 
@@ -18,8 +19,10 @@ private:
   int current;
 
   // Utility methods
-  bool match(TokenType type, const std::string &expectedValue) {
-    if (check(type, expectedValue)) {
+  bool match(TokenType type, const std::string &expectedValue)
+  {
+    if (check(type, expectedValue))
+    {
       advance();
       return true;
     }
@@ -27,25 +30,34 @@ private:
   }
 
   Token consume(TokenType type, const std::string &expectedValue,
-                const std::string &errorMessage) {
-    if (check(type, expectedValue)) {
+                const std::string &errorMessage)
+  {
+    if (check(type, expectedValue))
+    {
       return advance();
-    } else {
+    }
+    else
+    {
       throw std::runtime_error(errorMessage);
     }
   }
 
-  bool check(TokenType type, const std::string &expectedValue) {
+  bool check(TokenType type, const std::string &expectedValue)
+  {
     if (isAtEnd())
       return false;
-    if (expectedValue != "") {
+    if (expectedValue != "")
+    {
       return peek().type == type && peek().value == expectedValue;
-    } else {
+    }
+    else
+    {
       return peek().type == type;
     }
   }
 
-  Token advance() {
+  Token advance()
+  {
     if (!isAtEnd())
       current++;
     return previous();
@@ -60,16 +72,20 @@ private:
   bool isClassName(const std::string &name);
   bool isInterfaceName(const std::string &name);
 
-  Token peekNext() const {
-    if (current + 1 < tokens.size()) {
+  Token peekNext() const
+  {
+    if (current + 1 < tokens.size())
+    {
       return tokens[current + 1];
     }
     return tokens
         .back(); // Return the last token if there are no more tokens ahead
   }
 
-  Token peekNextNext() const {
-    if (current + 2 >= tokens.size()) {
+  Token peekNextNext() const
+  {
+    if (current + 2 >= tokens.size())
+    {
       return tokens.back(); // Return the last token if out of range
     }
     return tokens[current + 2];
@@ -141,19 +157,25 @@ private:
 
 bool Parser::isAtEnd() const { return peek().type == TokenType::EndOfFile; }
 
-void Parser::error(const std::string &message) {
+void Parser::error(const std::string &message)
+{
   // Error handling logic
   throw std::runtime_error(message);
 }
 
-std::unique_ptr<ProgramNode> Parser::parse() {
+std::unique_ptr<ProgramNode> Parser::parse()
+{
   auto program =
       std::make_unique<ProgramNode>(0); // Assuming 0 as the starting line
 
-  while (!isAtEnd()) {
-    try {
+  while (!isAtEnd())
+  {
+    try
+    {
       program->children.push_back(parseDeclaration());
-    } catch (const std::runtime_error &e) {
+    }
+    catch (const std::runtime_error &e)
+    {
       throw std::runtime_error(e.what());
     }
   }
@@ -163,63 +185,107 @@ std::unique_ptr<ProgramNode> Parser::parse() {
 
 // Main Parsing Methods
 
-std::unique_ptr<ASTNode> Parser::parseDeclaration() {
-  if (match(TokenType::Keyword, "export")) {
+std::unique_ptr<ASTNode> Parser::parseDeclaration()
+{
+  if (match(TokenType::Keyword, "export"))
+  {
     auto exportedItem = parseDeclaration();
     std::unique_ptr<ExportNode> node =
         std::make_unique<ExportNode>(previous().line);
     node->exportItem = std::move(exportedItem);
     return node;
-  } else if (match(TokenType::Keyword, "template")) {
+  }
+  else if (match(TokenType::Keyword, "template"))
+  {
     return parseTemplateDeclaration();
-  } else if (match(TokenType::Keyword, "class")) {
+  }
+  else if (match(TokenType::Keyword, "class"))
+  {
     return parseClassDeclaration();
-  } else if (peek().type == TokenType::Keyword &&
-             peekNext().value == "function") {
+  }
+  else if (peek().type == TokenType::Keyword &&
+           peekNext().value == "function")
+  {
     return parseFunctionDeclaration();
-  } else if (peek().type == TokenType::Keyword && peek().value == "async" &&
-             peekNext().value == "function") {
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "async" &&
+           peekNext().value == "function")
+  {
     return parseFunctionDeclaration();
-  } else if (match(TokenType::Keyword, "interface")) {
+  }
+  else if (match(TokenType::Keyword, "interface"))
+  {
     return parseInterfaceDeclaration();
-  } else if (match(TokenType::Keyword, "if")) {
+  }
+  else if (match(TokenType::Keyword, "if"))
+  {
     return parseIfStatement();
-  } else if (match(TokenType::Keyword, "for")) {
+  }
+  else if (match(TokenType::Keyword, "for"))
+  {
     return parseForStatement();
-  } else if (match(TokenType::Keyword, "while")) {
+  }
+  else if (match(TokenType::Keyword, "while"))
+  {
     return parseWhileStatement();
-  } else if (match(TokenType::Keyword, "return")) {
+  }
+  else if (match(TokenType::Keyword, "return"))
+  {
     return parseReturnStatement();
-  } else if (match(TokenType::Keyword, "break")) {
+  }
+  else if (match(TokenType::Keyword, "break"))
+  {
     return parseBreakStatement();
-  } else if (match(TokenType::Keyword, "continue")) {
+  }
+  else if (match(TokenType::Keyword, "continue"))
+  {
     return parseContinueStatement();
-  } else if (match(TokenType::Keyword, "switch")) {
+  }
+  else if (match(TokenType::Keyword, "switch"))
+  {
     return parseSwitchStatement();
-  } else if (match(TokenType::Keyword, "try")) {
+  }
+  else if (match(TokenType::Keyword, "try"))
+  {
     return parseTryCatchStatement();
-  } else if (match(TokenType::Keyword, "export")) {
+  }
+  else if (match(TokenType::Keyword, "export"))
+  {
     return parseExportStatement();
-  } else if (match(TokenType::Keyword, "import")) {
+  }
+  else if (match(TokenType::Keyword, "import"))
+  {
     return parseImportStatement();
-  } else if (match(TokenType::Keyword, "null")) {
+  }
+  else if (match(TokenType::Keyword, "null"))
+  {
     return parseNullReference();
-  } else if (match(TokenType::Keyword, "print")) {
+  }
+  else if (match(TokenType::Keyword, "print"))
+  {
     return parseConsoleLog();
-  } else if (match(TokenType::Keyword, "await")) {
+  }
+  else if (match(TokenType::Keyword, "await"))
+  {
     return parseAwaitExpression();
-  } else if (match(TokenType::Keyword, "input")) {
+  }
+  else if (match(TokenType::Keyword, "input"))
+  {
     return parseInputStatement();
-  } else if (match(TokenType::Keyword, "") ||
-             match(TokenType::Keyword, "const")) {
+  }
+  else if (match(TokenType::Keyword, "") ||
+           match(TokenType::Keyword, "const"))
+  {
     return parseVariableDeclaration(previous().value);
   }
   return parseStatement();
 }
 
-std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
+std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter()
+{
   std::unique_ptr<TypeNode> paramType;
-  if (isType(peek().value)) {
+  if (isType(peek().value))
+  {
     // Parse parameter type if present
     paramType = parseType();
   }
@@ -232,32 +298,42 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
   return parameter;
 }
 
-std::unique_ptr<ASTNode> Parser::parseStatement() {
+std::unique_ptr<ASTNode> Parser::parseStatement()
+{
   std::cout << peek().value << std::endl;
-  if (match(TokenType::Punctuator, "{")) {
+  if (match(TokenType::Punctuator, "{"))
+  {
     return parseBlockStatement();
   }
 
   return parseExpression();
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseExpression() {
-  if (check(TokenType::Punctuator, "[")) {
+std::unique_ptr<ExpressionNode> Parser::parseExpression()
+{
+  if (check(TokenType::Punctuator, "["))
+  {
     return parseArrayLiteral();
-  } else if (check(TokenType::Punctuator, "{")) {
+  }
+  else if (check(TokenType::Punctuator, "{"))
+  {
     return parseObjectLiteral();
-  } else {
+  }
+  else
+  {
     return parseAssignmentExpression();
   }
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression()
+{
   auto left = parseOrExpression(); // Start with the next level of precedence,
                                    // which might be logical OR.
 
   if (match(TokenType::Operator, "=") || match(TokenType::Operator, "+=") ||
       match(TokenType::Operator,
-            "-=") /* ... other assignment operators ... */) {
+            "-=") /* ... other assignment operators ... */)
+  {
     std::string operatorValue = previous().value;
     auto right =
         parseAssignmentExpression(); // Recursively parse the right-hand side
@@ -265,14 +341,17 @@ std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
     // Ensure the left-hand side is a valid lvalue (this is language specific
     // and may involve more checks)
     if (dynamic_cast<VariableExpressionNode *>(left.get()) ||
-        dynamic_cast<MemberAccessExpressionNode *>(left.get())) {
+        dynamic_cast<MemberAccessExpressionNode *>(left.get()))
+    {
       std::unique_ptr<AssignmentExpressionNode> node =
           std::make_unique<AssignmentExpressionNode>(operatorValue,
                                                      previous().line);
       node->left = std::move(left);
       node->right = std::move(right);
       return node;
-    } else {
+    }
+    else
+    {
       error("Invalid left-hand side in assignment");
     }
   }
@@ -281,11 +360,13 @@ std::unique_ptr<ExpressionNode> Parser::parseAssignmentExpression() {
                // left-hand expression
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseOrExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseOrExpression()
+{
   auto left = parseAndExpression(); // Start with the next level of
                                     // precedence, which might be logical AND.
 
-  while (match(TokenType::Operator, "||")) {
+  while (match(TokenType::Operator, "||"))
+  {
     std::string operatorValue = previous().value;
     auto right = parseAndExpression(); // Recursively parse the right operand.
     left = std::make_unique<OrExpressionNode>(
@@ -296,12 +377,14 @@ std::unique_ptr<ExpressionNode> Parser::parseOrExpression() {
                // expression.
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseAndExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseAndExpression()
+{
   auto left =
       parseEqualityExpression(); // Start with the next level of precedence,
                                  // which might be equality expressions.
 
-  while (match(TokenType::Operator, "&&")) {
+  while (match(TokenType::Operator, "&&"))
+  {
     std::string operatorValue = previous().value;
     auto right =
         parseEqualityExpression(); // Recursively parse the right operand.
@@ -313,11 +396,13 @@ std::unique_ptr<ExpressionNode> Parser::parseAndExpression() {
                // expression.
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression()
+{
   auto left =
       parseComparisonExpression(); // Start with the next level of precedence.
 
-  while (match(TokenType::Operator, "==") || match(TokenType::Operator, "!=")) {
+  while (match(TokenType::Operator, "==") || match(TokenType::Operator, "!="))
+  {
     std::string operatorValue = previous().value;
     auto right =
         parseComparisonExpression(); // Recursively parse the right operand.
@@ -328,12 +413,17 @@ std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
   return left; // If no equality operator is found, just return the left
                // operand expression.
 }
-std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression()
+{
+  std::cout << "Parsing comparison expression" << std::endl;
   auto left =
       parseAdditionExpression(); // Start with the next level of precedence.
 
   while (match(TokenType::Operator, "<") || match(TokenType::Operator, ">") ||
-         match(TokenType::Operator, "<=") || match(TokenType::Operator, ">=")) {
+         match(TokenType::Operator, "<=") || match(TokenType::Operator, ">="))
+  {
+    std::cout << "Match for comparison" << std::endl;
+
     std::string operatorValue = previous().value;
     auto right =
         parseAdditionExpression(); // Recursively parse the right operand.
@@ -345,20 +435,27 @@ std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
                // operand expression.
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression()
+{
   auto left = parseMultiplicationExpression(); // Start with the next level of
                                                // precedence.
 
-  while (true) {
-    if (match(TokenType::Operator, "+")) {
+  while (true)
+  {
+    if (match(TokenType::Operator, "+"))
+    {
       auto right = parseMultiplicationExpression(); // Parse the right operand.
       left = std::make_unique<AdditionExpressionNode>(
           std::move(left), "+", std::move(right), previous().line);
-    } else if (match(TokenType::Operator, "-")) {
+    }
+    else if (match(TokenType::Operator, "-"))
+    {
       auto right = parseMultiplicationExpression(); // Parse the right operand.
       left = std::make_unique<SubtractionExpressionNode>(
           std::move(left), "-", std::move(right), previous().line);
-    } else {
+    }
+    else
+    {
       break; // No more addition or subtraction operators.
     }
   }
@@ -366,20 +463,27 @@ std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression() {
   return left; // Return the built expression node.
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
+std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression()
+{
   auto left =
       parseUnaryExpression(); // Start with the next level of precedence.
 
-  while (true) {
-    if (match(TokenType::Operator, "*")) {
+  while (true)
+  {
+    if (match(TokenType::Operator, "*"))
+    {
       auto right = parseUnaryExpression(); // Parse the right operand.
       left = std::make_unique<MultiplicationExpressionNode>(
           std::move(left), "*", std::move(right), previous().line);
-    } else if (match(TokenType::Operator, "/")) {
+    }
+    else if (match(TokenType::Operator, "/"))
+    {
       auto right = parseUnaryExpression(); // Parse the right operand.
       left = std::make_unique<DivisionExpressionNode>(
           std::move(left), "/", std::move(right), previous().line);
-    } else {
+    }
+    else
+    {
       break; // No more multiplication or division operators.
     }
   }
@@ -387,15 +491,20 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression() {
   return left; // Return the built expression node.
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
-  if (match(TokenType::Identifier, "")) {
+std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression()
+{
+  if (match(TokenType::Identifier, ""))
+  {
     std::string identifier = previous().value;
 
-    if (match(TokenType::Punctuator, "(")) {
+    if (match(TokenType::Punctuator, "("))
+    {
       // It's a function call
       return parseCallExpression(std::make_unique<VariableExpressionNode>(
           identifier, previous().line));
-    } else if (match(TokenType::Punctuator, ".")) {
+    }
+    else if (match(TokenType::Punctuator, "."))
+    {
       // It's a member access
       return parseMemberAccessExpression(
           std::make_unique<VariableExpressionNode>(identifier,
@@ -408,9 +517,10 @@ std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
   }
 
   // Check for unary operators
-  if (match(TokenType::Operator, "-") || match(TokenType::Operator, "!")) {
+  if (match(TokenType::Operator, "-") || match(TokenType::Operator, "!"))
+  {
     std::string operatorValue = previous().value; // Get the unary operator
-    auto operand = parseUnaryExpression(); // Recursively parse the operand
+    auto operand = parseUnaryExpression();        // Recursively parse the operand
     std::unique_ptr<UnaryExpressionNode> node =
         std::make_unique<UnaryExpressionNode>(operatorValue, previous().line);
     node->operand = std::move(operand);
@@ -421,19 +531,26 @@ std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression() {
   return parsePrimaryExpression();
 }
 
-std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
+std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression()
+{
   if (match(TokenType::Number, "") || match(TokenType::String, "") ||
       match(TokenType::Character, "") || match(TokenType::Keyword, "true") ||
-      match(TokenType::Keyword, "false") || match(TokenType::Keyword, "null")) {
+      match(TokenType::Keyword, "false") || match(TokenType::Keyword, "null"))
+  {
     return parseLiteral();
-  } else if (match(TokenType::Identifier, "")) {
+  }
+  else if (match(TokenType::Identifier, ""))
+  {
     std::string identifier = previous().value;
 
-    if (match(TokenType::Punctuator, "(")) {
+    if (match(TokenType::Punctuator, "("))
+    {
       // It's a function call
       std::vector<std::unique_ptr<ExpressionNode>> arguments;
-      if (!check(TokenType::Punctuator, ")")) {
-        do {
+      if (!check(TokenType::Punctuator, ")"))
+      {
+        do
+        {
           arguments.push_back(parseExpression());
         } while (match(TokenType::Punctuator, ","));
       }
@@ -444,7 +561,9 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
       callNode->callee =
           std::make_unique<VariableExpressionNode>(identifier, previous().line);
       return callNode;
-    } else if (match(TokenType::Punctuator, ".")) {
+    }
+    else if (match(TokenType::Punctuator, "."))
+    {
       // It's a member access
       consume(TokenType::Identifier, "", "Expected member name after '.'");
       std::string memberName = previous().value;
@@ -459,26 +578,40 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
     // Just an identifier
     return std::make_unique<VariableExpressionNode>(identifier,
                                                     previous().line);
-  } else if (match(TokenType::Punctuator, "[")) {
+  }
+  else if (match(TokenType::Punctuator, "["))
+  {
     return parseArrayLiteral();
-  } else if (match(TokenType::Punctuator, "{")) {
+  }
+  else if (match(TokenType::Punctuator, "{"))
+  {
     return parseObjectLiteral();
-  } else if (match(TokenType::Keyword, "function")) {
+  }
+  else if (match(TokenType::Keyword, "function"))
+  {
     return parseAnonymousFunction();
-  } else if (peek().value == "new") {
+  }
+  else if (peek().value == "new")
+  {
     return parseAnonymousFunction();
-  } else if (match(TokenType::Punctuator, "(")) {
+  }
+  else if (match(TokenType::Punctuator, "("))
+  {
     auto expr = parseExpression();
     consume(TokenType::Punctuator, ")", "Expected ')' after expression");
     return expr;
-  } else {
+  }
+  else
+  {
     throw std::runtime_error("Unexpected token in primary expression");
   }
 }
 
-std::unique_ptr<NullReferenceNode> Parser::parseNullReference() {
+std::unique_ptr<NullReferenceNode> Parser::parseNullReference()
+{
   // Ensure that the current token is 'null'
-  if (!match(TokenType::Keyword, "null")) {
+  if (!match(TokenType::Keyword, "null"))
+  {
     error("Expected 'null'");
   }
 
@@ -489,15 +622,17 @@ std::unique_ptr<NullReferenceNode> Parser::parseNullReference() {
   return nullNode;
 }
 
-bool Parser::isType(const std::string &keyword) {
+bool Parser::isType(const std::string &keyword)
+{
   // Check if the keyword is a valid type
   static const std::set<std::string> validTypes = {
-      "bool", "char",    "int",    "float", "double",
+      "bool", "char", "int", "float", "double",
       "void", "wchar_t", "string", "Error"};
   return validTypes.find(keyword) != validTypes.end();
 }
 
-std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
+std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog()
+{
 
   // Parse the expression to be logged
   auto expression = parseExpression();
@@ -511,13 +646,15 @@ std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
   return console_log_node;
 }
 
-std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
+std::unique_ptr<InputStatementNode> Parser::parseInputStatement()
+{
   // Ensure the current token is the 'input' keyword
   consume(TokenType::Keyword, "input", "Expected 'input'");
 
   // Optionally, parse a variable declaration if it's part of the input syntax
   std::unique_ptr<VariableDeclarationNode> variable;
-  if (match(TokenType::Identifier, "input")) {
+  if (match(TokenType::Identifier, "input"))
+  {
     std::string variableName = previous().value;
     consume(TokenType::Operator, "=",
             "Expected '='"); // Assuming the syntax is 'input variableName =
@@ -543,14 +680,16 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
   node->variable = std::move(variable);
   return node;
 }
-std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
+std::unique_ptr<ClassNode> Parser::parseClassDeclaration()
+{
   consume(TokenType::Keyword, "class", "Expected 'class' keyword");
   auto classNameToken =
       consume(TokenType::Identifier, "", "Expected class name");
   std::string className = classNameToken.value;
 
   std::string baseClassName;
-  if (match(TokenType::Keyword, "extends")) {
+  if (match(TokenType::Keyword, "extends"))
+  {
     baseClassName =
         consume(TokenType::Identifier, "", "Expected base class name").value;
   }
@@ -564,7 +703,8 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
   consume(TokenType::Punctuator, "{", "Expected '{' after class name");
 
   // Parse class members until the closing brace '}'
-  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  {
     classNode->members.push_back(parseClassMember());
   }
 
@@ -574,44 +714,52 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
   return classNode;
 }
 
-std::unique_ptr<ASTNode> Parser::parseClassMember() {
+std::unique_ptr<ASTNode> Parser::parseClassMember()
+{
   // Check if the member is a method
   if (match(TokenType::Keyword, "function") ||
-      match(TokenType::Keyword, "async")) {
+      match(TokenType::Keyword, "async"))
+  {
     return parseFunctionDeclaration();
   }
   // Check if the member is a property
-  else if (match(TokenType::Keyword, "") && isType(previous().value)) {
+  else if (match(TokenType::Keyword, "") && isType(previous().value))
+  {
     return parsePropertyDeclaration();
   }
   // Handle other types of class members
   // Example: parsing a constructor
-  else if (match(TokenType::Keyword, "constructor")) {
+  else if (match(TokenType::Keyword, "constructor"))
+  {
     return parseConstructorDeclaration();
   }
 
   throw std::runtime_error("Unsupported class member type");
 }
 
-std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration() {
+std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration()
+{
   // Assuming properties are declared like variables
   std::string propertyName =
       consume(TokenType::Identifier, "", "Expected property name").value;
 
   // Optional: Parse property type if it follows the property name
   std::unique_ptr<TypeNode> propertyType;
-  if (peek().type == TokenType::Identifier) {
+  if (peek().type == TokenType::Identifier)
+  {
     // Assuming next token is type if it's an identifier
     propertyType = parseType();
   }
 
   // Check for '=' and parse the initializer expression if present
   std::unique_ptr<ExpressionNode> initializer;
-  if (match(TokenType::Operator, "=")) {
+  if (match(TokenType::Operator, "="))
+  {
     auto expr = parseExpression(); // Returns std::unique_ptr<ASTNode>
     initializer = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!initializer) {
+    if (!initializer)
+    {
       throw std::runtime_error("Expected expression for initializer");
     }
   }
@@ -626,7 +774,8 @@ std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration() {
       previous().line);
 }
 
-std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration() {
+std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration()
+{
   // Assuming a constructor is like a function but without a return type
   consume(TokenType::Punctuator, "(", "Expected '(' after 'constructor'");
   auto parameters = parseParameters();
@@ -638,18 +787,21 @@ std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration() {
   return std::make_unique<ConstructorNode>(std::move(parameters),
                                            std::move(body), previous().line);
 }
-std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
+std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration()
+{
   bool isAsync = false;
   std::string returnType;
 
   // Check for 'async' keyword
-  if (peek().type == TokenType::Keyword && peek().value == "async") {
+  if (peek().type == TokenType::Keyword && peek().value == "async")
+  {
     isAsync = true;
     advance(); // Consume 'async'
   }
 
   // Check for return type
-  if (peek().type == TokenType::Keyword && isType(peek().value)) {
+  if (peek().type == TokenType::Keyword && isType(peek().value))
+  {
     returnType = peek().value;
     advance(); // Consume return type
   }
@@ -666,8 +818,10 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
 
   // Parse function parameters
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
-  if (!check(TokenType::Punctuator, ")")) {
-    do {
+  if (!check(TokenType::Punctuator, ")"))
+  {
+    do
+    {
       parameters.push_back(parseFunctionParameter());
     } while (match(TokenType::Punctuator, ","));
   }
@@ -689,20 +843,23 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
 }
 
 std::unique_ptr<VariableDeclarationNode>
-Parser::parseVariableDeclaration(std::string type) {
+Parser::parseVariableDeclaration(std::string type)
+{
   bool isConst = match(TokenType::Keyword, "const");
 
   // First, correctly parse the type
   auto variableName =
       consume(TokenType::Identifier, "", "Expected identifier").value;
   std::string typeName = type;
-  if (!isType(typeName)) {
+  if (!isType(typeName))
+  {
     throw std::runtime_error("Unknown type: " + typeName);
   }
 
   // Optional initializer
   std::unique_ptr<ExpressionNode> initializer;
-  if (match(TokenType::Operator, "=")) {
+  if (match(TokenType::Operator, "="))
+  {
     initializer = parseExpression();
   }
 
@@ -717,7 +874,8 @@ Parser::parseVariableDeclaration(std::string type) {
   return node;
 }
 
-std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
+std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration()
+{
   // Ensure we are starting with 'interface' keyword
   consume(TokenType::Keyword, "interface", "Expected 'interface'");
 
@@ -736,11 +894,15 @@ std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
   consume(TokenType::Punctuator, "{", "Expected '{' after interface name");
 
   // Parse interface members until closing brace '}'
-  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
-    if (peek().type == TokenType::Identifier) {
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  {
+    if (peek().type == TokenType::Identifier)
+    {
       // Parse a property or method declaration
       interfaceNode->members.push_back(parseInterfaceMember());
-    } else {
+    }
+    else
+    {
       error("Expected interface member declaration");
     }
   }
@@ -751,20 +913,24 @@ std::unique_ptr<InterfaceNode> Parser::parseInterfaceDeclaration() {
   return interfaceNode;
 }
 
-std::unique_ptr<ASTNode> Parser::parseInterfaceMember() {
+std::unique_ptr<ASTNode> Parser::parseInterfaceMember()
+{
   // Check if the member is a method
-  if (match(TokenType::Keyword, "function")) {
+  if (match(TokenType::Keyword, "function"))
+  {
     return parseFunctionDeclaration();
   }
   // Handle other types of interface members (e.g., properties)
-  else {
+  else
+  {
 
     std::string propertyName =
         consume(TokenType::Identifier, "Expected property name", "").value;
 
     // Optional: Parse property type if it follows the property name
     std::unique_ptr<TypeNode> propertyType;
-    if (peek().type == TokenType::Identifier) {
+    if (peek().type == TokenType::Identifier)
+    {
       // Assuming next token is type if it's an identifier
       propertyType = parseType();
     }
@@ -782,7 +948,8 @@ std::unique_ptr<ASTNode> Parser::parseInterfaceMember() {
   }
 }
 
-std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
+std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement()
+{
   // Consume the opening brace '{'
   consume(TokenType::Punctuator, "{", "Expected '{' at the start of block");
 
@@ -790,11 +957,15 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
   auto block = std::make_unique<BlockStatementNode>(previous().line);
 
   // Parse statements until the closing brace '}'
-  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
-    try {
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  {
+    try
+    {
       block->statements.push_back(std::unique_ptr<StatementNode>(
           dynamic_cast<StatementNode *>(parseDeclaration().release())));
-    } catch (const std::runtime_error &e) {
+    }
+    catch (const std::runtime_error &e)
+    {
       error(e.what()); // Handle parsing errors in each statement
     }
   }
@@ -805,7 +976,8 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
   return block;
 }
 
-std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
+std::unique_ptr<IfStatementNode> Parser::parseIfStatement()
+{
   std::cout << peek().value << std::endl;
   // Consume the opening parenthesis '('
   consume(TokenType::Punctuator, "(", "Expected '(' after 'if'");
@@ -823,11 +995,13 @@ std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
 
   // Optional 'else' branch
   std::unique_ptr<StatementNode> elseBranch = nullptr;
-  if (match(TokenType::Keyword, "else")) {
+  if (match(TokenType::Keyword, "else"))
+  {
     auto elseStatement = parseStatement();
     elseBranch = std::unique_ptr<StatementNode>(
         dynamic_cast<StatementNode *>(elseStatement.release()));
-    if (!elseBranch) {
+    if (!elseBranch)
+    {
       error("Expected a statement for the 'else' branch");
     }
   }
@@ -841,7 +1015,8 @@ std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
   return node;
 }
 
-std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
+std::unique_ptr<ForStatementNode> Parser::parseForStatement()
+{
   // Consume the 'for' keyword
   consume(TokenType::Keyword, "for", "Expected 'for'");
 
@@ -850,19 +1025,24 @@ std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
 
   // Parse the initializer
   std::unique_ptr<StatementNode> initializer;
-  if (match(TokenType::Keyword, "") || match(TokenType::Keyword, "")) {
+  if (match(TokenType::Keyword, "") || match(TokenType::Keyword, ""))
+  {
     initializer = parseVariableDeclaration(previous().value);
-  } else if (!match(TokenType::Punctuator, ";")) {
+  }
+  else if (!match(TokenType::Punctuator, ";"))
+  {
     initializer = parseExpressionStatement();
   }
 
   // Parse the condition
   std::unique_ptr<ExpressionNode> condition;
-  if (!check(TokenType::Punctuator, ";")) {
+  if (!check(TokenType::Punctuator, ";"))
+  {
     auto expr = parseExpression();
     condition = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!condition) {
+    if (!condition)
+    {
       error("Expected a valid expression for the condition");
     }
   }
@@ -870,11 +1050,13 @@ std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
 
   // Parse the increment
   std::unique_ptr<ExpressionNode> increment;
-  if (!check(TokenType::Punctuator, ")")) {
+  if (!check(TokenType::Punctuator, ")"))
+  {
     auto expr = parseExpression();
     increment = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!increment) {
+    if (!increment)
+    {
       error("Expected a valid expression for the increment");
     }
   }
@@ -893,7 +1075,8 @@ std::unique_ptr<ForStatementNode> Parser::parseForStatement() {
   return node;
 }
 
-std::unique_ptr<StatementNode> Parser::parseExpressionStatement() {
+std::unique_ptr<StatementNode> Parser::parseExpressionStatement()
+{
   // Parse the expression
   auto expr = parseExpression();
 
@@ -906,7 +1089,8 @@ std::unique_ptr<StatementNode> Parser::parseExpressionStatement() {
                                                    previous().line);
 }
 
-std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
+std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement()
+{
   // Consume the 'while' keyword
   consume(TokenType::Keyword, "while",
           "Expected 'while' keyword in while statement");
@@ -931,20 +1115,23 @@ std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
   return node;
 }
 
-std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
+std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement()
+{
 
   std::unique_ptr<ExpressionNode> returnValue;
 
   // Check if the next token is not a semicolon, indicating a return value is
   // present
-  if (!check(TokenType::Punctuator, ";")) {
+  if (!check(TokenType::Punctuator, ";"))
+  {
     // Parse the return value expression
     auto expr = parseExpression();
 
     // Cast the ASTNode to ExpressionNode
     returnValue = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!returnValue) {
+    if (!returnValue)
+    {
       error("Invalid expression in return statement");
     }
   }
@@ -959,7 +1146,8 @@ std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
   return node;
 }
 
-std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement() {
+std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement()
+{
   // Consume the 'break' keyword
   consume(TokenType::Keyword, "break",
           "Expected 'break' keyword in break statement");
@@ -971,7 +1159,8 @@ std::unique_ptr<BreakStatementNode> Parser::parseBreakStatement() {
   return std::make_unique<BreakStatementNode>(previous().line);
 }
 
-std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement() {
+std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement()
+{
   // Consume the 'continue' keyword
   consume(TokenType::Keyword, "continue",
           "Expected 'continue' keyword in continue statement");
@@ -983,7 +1172,8 @@ std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement() {
   return std::make_unique<ContinueStatementNode>(previous().line);
 }
 
-std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
+std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement()
+{
   // Consume the 'switch' keyword
   consume(TokenType::Keyword, "switch",
           "Expected 'switch' keyword in switch statement");
@@ -1006,7 +1196,8 @@ std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
   std::vector<std::unique_ptr<CaseClauseNode>> cases;
 
   // Loop to parse each case clause
-  while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  {
     cases.push_back(parseCaseClause());
   }
 
@@ -1021,7 +1212,8 @@ std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement() {
   return node;
 }
 
-std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
+std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement()
+{
   // Consume the 'try' keyword
   consume(TokenType::Keyword, "try",
           "Expected 'try' keyword in try-catch statement");
@@ -1061,7 +1253,8 @@ std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement() {
   return node;
 }
 
-std::unique_ptr<ExportNode> Parser::parseExportStatement() {
+std::unique_ptr<ExportNode> Parser::parseExportStatement()
+{
   // Consume the 'export' keyword
   consume(TokenType::Keyword, "export",
           "Expected 'export' keyword in export statement");
@@ -1070,23 +1263,30 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement() {
   // template, or async function
   std::unique_ptr<ASTNode> exportItem;
 
-  if (peek().type == TokenType::Keyword) {
+  if (peek().type == TokenType::Keyword)
+  {
     const std::string &nextTokenValue = peek().value;
     if (nextTokenValue == "class" || nextTokenValue == "function" ||
         nextTokenValue == "interface" || nextTokenValue == "template" ||
-        nextTokenValue == "async") {
+        nextTokenValue == "async")
+    {
       // If the next token is a 'class', 'function', 'interface', 'template', or
       // 'async', parse it accordingly
       exportItem = parseDeclaration();
-    } else {
+    }
+    else
+    {
       exportItem = parseVariableDeclaration(peek().value);
     }
-  } else {
+  }
+  else
+  {
     error("Expected a declaration after 'export'");
   }
 
   // Ensure that exportItem is not null
-  if (!exportItem) {
+  if (!exportItem)
+  {
     error("Expected a valid item to export");
   }
 
@@ -1097,7 +1297,8 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement() {
   return node;
 }
 
-std::unique_ptr<ImportNode> Parser::parseImportStatement() {
+std::unique_ptr<ImportNode> Parser::parseImportStatement()
+{
   // Consume 'import' keyword
   consume(TokenType::Keyword, "import", "Expected 'import' keyword");
 
@@ -1107,8 +1308,10 @@ std::unique_ptr<ImportNode> Parser::parseImportStatement() {
 
   // Optional: Parse imported items
   std::vector<std::string> imports;
-  if (match(TokenType::Punctuator, "{")) {
-    do {
+  if (match(TokenType::Punctuator, "{"))
+  {
+    do
+    {
       std::string importItem =
           consume(TokenType::Identifier, "", "Expected import item").value;
       imports.push_back(importItem);
@@ -1117,7 +1320,8 @@ std::unique_ptr<ImportNode> Parser::parseImportStatement() {
   }
 
   // Optional: Consume 'from' keyword
-  if (match(TokenType::Keyword, "from")) {
+  if (match(TokenType::Keyword, "from"))
+  {
     // Consume the actual module name
     moduleName =
         consume(TokenType::String, "", "Expected module name after 'from'")
@@ -1136,10 +1340,13 @@ std::unique_ptr<ImportNode> Parser::parseImportStatement() {
 }
 
 std::unique_ptr<CallExpressionNode>
-Parser::parseCallExpression(std::unique_ptr<VariableExpressionNode> callee) {
+Parser::parseCallExpression(std::unique_ptr<VariableExpressionNode> callee)
+{
   std::vector<std::unique_ptr<ExpressionNode>> arguments;
-  if (!check(TokenType::Punctuator, ")")) {
-    do {
+  if (!check(TokenType::Punctuator, ")"))
+  {
+    do
+    {
       arguments.push_back(parseExpression());
     } while (match(TokenType::Punctuator, ","));
   }
@@ -1151,7 +1358,8 @@ Parser::parseCallExpression(std::unique_ptr<VariableExpressionNode> callee) {
   return node;
 }
 std::unique_ptr<MemberAccessExpressionNode>
-Parser::parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object) {
+Parser::parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object)
+{
   auto memberNameToken =
       consume(TokenType::Identifier, "", "Expected member name after '.'");
   std::string memberName = memberNameToken.value;
@@ -1164,14 +1372,17 @@ Parser::parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object) {
   return node;
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
+std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction()
+{
   // Assuming the 'function' keyword has already been consumed
 
   consume(TokenType::Punctuator, "(", "Expected '(' after 'function'");
 
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
-  if (!check(TokenType::Punctuator, ")")) {
-    do {
+  if (!check(TokenType::Punctuator, ")"))
+  {
+    do
+    {
       std::string paramName =
           consume(TokenType::Identifier, "", "Expected parameter name").value;
       // If your language supports types for parameters, parse the type here
@@ -1194,33 +1405,46 @@ std::unique_ptr<ExpressionNode> Parser::parseAnonymousFunction() {
                                                   previous().line);
 }
 
-std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
-  if (previous().type == TokenType::Number) {
+std::unique_ptr<ExpressionNode> Parser::parseLiteral()
+{
+  if (previous().type == TokenType::Number)
+  {
     // For numeric literals (integers, floats, doubles)
     std::string value = previous().value;
-    if (value.find('.') != std::string::npos) {
+    if (value.find('.') != std::string::npos)
+    {
       // Contains a decimal point, treat as a floating point or double
       return std::make_unique<FloatingPointLiteralNode>(value, previous().line);
-    } else {
+    }
+    else
+    {
       // No decimal point, treat as an integer
       return std::make_unique<IntegerLiteralNode>(value, previous().line);
     }
-  } else if (previous().type == TokenType::String) {
+  }
+  else if (previous().type == TokenType::String)
+  {
     // For string literals
     return std::make_unique<StringLiteralNode>(previous().value,
                                                previous().line);
-  } else if ((previous().type == TokenType::Keyword &&
-              previous().value == "true") ||
-             (previous().type == TokenType::Keyword &&
-              previous().value == "false")) {
+  }
+  else if ((previous().type == TokenType::Keyword &&
+            previous().value == "true") ||
+           (previous().type == TokenType::Keyword &&
+            previous().value == "false"))
+  {
     // For boolean literals
     bool value = previous().value == "true";
     return std::make_unique<BooleanLiteralNode>(value, previous().line);
-  } else if ((previous().type == TokenType::Keyword &&
-              previous().value == "null")) {
+  }
+  else if ((previous().type == TokenType::Keyword &&
+            previous().value == "null"))
+  {
     // For null literals
     return std::make_unique<NullLiteralNode>(previous().line);
-  } else if (previous().type == TokenType::Character) {
+  }
+  else if (previous().type == TokenType::Character)
+  {
     char value = previous().value[0];
     return std::make_unique<CharacterLiteralNode>(value, previous().line);
   }
@@ -1229,17 +1453,21 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral() {
   throw std::runtime_error("Expected literal");
 }
 
-std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral() {
+std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral()
+{
   consume(TokenType::Punctuator, "[",
           "Expected '[' at the start of array literal");
 
   std::vector<std::unique_ptr<ExpressionNode>> elements;
-  if (!check(TokenType::Punctuator, "]")) {
-    do {
+  if (!check(TokenType::Punctuator, "]"))
+  {
+    do
+    {
       auto element = parseExpression();
       elements.push_back(std::unique_ptr<ExpressionNode>(
           dynamic_cast<ExpressionNode *>(element.release())));
-      if (!elements.back()) {
+      if (!elements.back())
+      {
         throw std::runtime_error("Expected expression in array literal");
       }
     } while (match(TokenType::Punctuator, ","));
@@ -1254,19 +1482,25 @@ std::unique_ptr<ArrayLiteralNode> Parser::parseArrayLiteral() {
   return node;
 }
 
-std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
+std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral()
+{
   consume(TokenType::Punctuator, "{",
           "Expected '{' at the start of object literal");
 
   std::vector<std::pair<std::string, std::unique_ptr<ExpressionNode>>>
       properties;
-  if (!check(TokenType::Punctuator, "}")) {
-    do {
+  if (!check(TokenType::Punctuator, "}"))
+  {
+    do
+    {
       // Parse the key
       std::string key;
-      if (match(TokenType::String, "") || match(TokenType::Identifier, "")) {
+      if (match(TokenType::String, "") || match(TokenType::Identifier, ""))
+      {
         key = previous().value;
-      } else {
+      }
+      else
+      {
         throw std::runtime_error("Expected string or identifier as object key");
       }
 
@@ -1289,36 +1523,45 @@ std::unique_ptr<ObjectLiteralNode> Parser::parseObjectLiteral() {
   return node;
 }
 
-std::unique_ptr<TypeNode> Parser::parseType() {
+std::unique_ptr<TypeNode> Parser::parseType()
+{
   auto typeToken = consume(TokenType::Keyword, "", "Expected a type");
 
   std::string typeName = typeToken.value;
   if (typeName == "bool" || typeName == "char" || typeName == "int" ||
       typeName == "float" || typeName == "double" || typeName == "void" ||
       typeName == "wchar_t" || typeName == "string" || typeName == "Error" ||
-      isClassName(typeName) || isInterfaceName(typeName)) {
+      isClassName(typeName) || isInterfaceName(typeName))
+  {
     return std::make_unique<TypeNode>(typeName, previous().line);
-  } else {
+  }
+  else
+  {
     throw std::runtime_error("Unknown type: " + typeName);
   }
 }
 
-bool Parser::isClassName(const std::string &name) {
+bool Parser::isClassName(const std::string &name)
+{
   return declaredClasses.find(name) != declaredClasses.end();
 }
 
-bool Parser::isInterfaceName(const std::string &name) {
+bool Parser::isInterfaceName(const std::string &name)
+{
   return declaredInterfaces.find(name) != declaredInterfaces.end();
 }
 
-std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters() {
+std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters()
+{
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
 
   consume(TokenType::Punctuator, "(",
           "Expected '(' at the start of parameters");
 
-  if (!check(TokenType::Punctuator, ")")) {
-    do {
+  if (!check(TokenType::Punctuator, ")"))
+  {
+    do
+    {
       // Parse the type of the parameter
       auto type = parseType();
 
@@ -1339,7 +1582,8 @@ std::vector<std::unique_ptr<FunctionParameterNode>> Parser::parseParameters() {
   return parameters;
 }
 
-std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression() {
+std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression()
+{
   consume(TokenType::Keyword, "await", "Expected 'await'");
 
   auto expression = parseExpression(); // Parse the expression following 'await'
@@ -1349,21 +1593,28 @@ std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression() {
   return node;
 }
 
-std::unique_ptr<CaseClauseNode> Parser::parseCaseClause() {
+std::unique_ptr<CaseClauseNode> Parser::parseCaseClause()
+{
   std::unique_ptr<ExpressionNode> caseExpression;
   bool isDefault = false;
   int line = peek().line;
 
-  if (match(TokenType::Keyword, "case")) {
+  if (match(TokenType::Keyword, "case"))
+  {
     auto expr = parseExpression();
     caseExpression = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
-    if (!caseExpression) {
+    if (!caseExpression)
+    {
       throw std::runtime_error("Expected expression after 'case'");
     }
-  } else if (match(TokenType::Keyword, "default")) {
+  }
+  else if (match(TokenType::Keyword, "default"))
+  {
     isDefault = true;
-  } else {
+  }
+  else
+  {
     throw std::runtime_error("Expected 'case' or 'default' keyword");
   }
 
@@ -1371,31 +1622,40 @@ std::unique_ptr<CaseClauseNode> Parser::parseCaseClause() {
 
   std::vector<std::unique_ptr<StatementNode>> statements;
   while (!check(TokenType::Keyword, "case") &&
-         !check(TokenType::Keyword, "default") && !isAtEnd()) {
+         !check(TokenType::Keyword, "default") && !isAtEnd())
+  {
     auto astNode = parseStatement();
     StatementNode *statementNode = dynamic_cast<StatementNode *>(astNode.get());
-    if (statementNode) {
+    if (statementNode)
+    {
       statements.push_back(std::unique_ptr<StatementNode>(statementNode));
       astNode.release(); // Release ownership from the original unique_ptr
-    } else {
+    }
+    else
+    {
       throw std::runtime_error("Expected a statement node");
     }
   }
 
-  if (isDefault) {
+  if (isDefault)
+  {
     return std::make_unique<CaseClauseNode>(std::move(statements), line);
-  } else {
+  }
+  else
+  {
     return std::make_unique<CaseClauseNode>(std::move(caseExpression),
                                             std::move(statements), line);
   }
 }
 
-std::unique_ptr<TemplateNode> Parser::parseTemplateDeclaration() {
+std::unique_ptr<TemplateNode> Parser::parseTemplateDeclaration()
+{
   consume(TokenType::Keyword, "template", "Expected 'template' keyword");
 
   consume(TokenType::Punctuator, "<", "Expected '<' after 'template'");
   std::vector<std::string> templateParams;
-  do {
+  do
+  {
     std::string paramName =
         consume(TokenType::Identifier, "", "Expected template parameter name")
             .value;
