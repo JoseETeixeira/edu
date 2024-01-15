@@ -719,8 +719,8 @@ std::unique_ptr<ASTNode> Parser::parseClassMember()
 {
   std::cout << peek().value << std::endl;
   // Check if the member is a method
-  if (match(TokenType::Keyword, "") && isType(previous().value) &&
-      (peek().value == "async" || peek().value == "function"))
+  if (peek().type == TokenType::Keyword && isType(peek().value) &&
+      (peekNext().value == "async" || peekNext().value == "function"))
   {
     std::cout << "Parsing function declaration" << std::endl;
     return parseFunctionDeclaration();
@@ -749,17 +749,16 @@ std::unique_ptr<ASTNode> Parser::parseClassMember()
 
 std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration()
 {
-  // Assuming properties are declared like variables
-  std::string propertyName =
-      consume(TokenType::Identifier, "", "Expected property name").value;
-
-  // Optional: Parse property type if it follows the property name
   std::unique_ptr<TypeNode> propertyType;
-  if (peek().type == TokenType::Identifier)
+  if (peek().type == TokenType::Keyword && isType(peek().value))
   {
     // Assuming next token is type if it's an identifier
     propertyType = parseType();
   }
+
+  // Assuming properties are declared like variables
+  std::string propertyName =
+      consume(TokenType::Identifier, "", "Expected property name").value;
 
   // Check for '=' and parse the initializer expression if present
   std::unique_ptr<ExpressionNode> initializer;
