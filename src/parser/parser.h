@@ -240,6 +240,8 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
 std::unique_ptr<ASTNode> Parser::parseStatement() {
   if (match(TokenType::Punctuator, "{")) {
     return parseBlockStatement();
+  } else if (match(TokenType::Keyword, "print")) {
+    return parseConsoleLog();
   }
 
   return parseExpression();
@@ -498,8 +500,7 @@ bool Parser::isType(const std::string &keyword) {
 }
 
 std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
-  // Ensure the current token is the 'print' keyword
-  consume(TokenType::Keyword, "print", "Expected 'print'");
+  std::cout << peek().value << std::endl;
 
   // Parse the expression to be logged
   auto expression = parseExpression();
