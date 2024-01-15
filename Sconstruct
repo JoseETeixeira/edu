@@ -1,6 +1,6 @@
 import os
-
-env = Environment(CXX='g++', CXXFLAGS=['-std=c++20'])
+#env = Environment(CXX='g++', CXXFLAGS=['-std=c++20'])
+env = Environment( CXXFLAGS=['-std=c++2a'])
 
 def find_tests_in_directory(directory):
     test_files = []
