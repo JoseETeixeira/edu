@@ -233,10 +233,19 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseStatement() {
+  std::cout << peek().value << std::endl;
   if (match(TokenType::Punctuator, "{")) {
     return parseBlockStatement();
   } else if (match(TokenType::Keyword, "print")) {
     return parseConsoleLog();
+  } else if (match(TokenType::Keyword, "return")) {
+    return parseReturnStatement();
+  } else if (match(TokenType::Keyword, "") ||
+             match(TokenType::Keyword, "const")) {
+    return parseVariableDeclaration(previous().value);
+  } else if (match(TokenType::Keyword, "if")) {
+    std::cout << "if" << std::endl;
+    parseIfStatement();
   }
 
   return parseExpression();
@@ -933,9 +942,6 @@ std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement() {
 }
 
 std::unique_ptr<ReturnStatementNode> Parser::parseReturnStatement() {
-  // Consume the 'return' keyword
-  consume(TokenType::Keyword, "return",
-          "Expected 'return' keyword in return statement");
 
   std::unique_ptr<ExpressionNode> returnValue;
 

@@ -171,3 +171,41 @@ TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
   auto bodyNode = dynamic_cast<BlockStatementNode *>(functionNode->body.get());
   ASSERT_NE(bodyNode, nullptr) << "Function should have a body";
 }
+
+TEST_F(ParserTest, ParseFunctionWithReturnType) {
+  std::string source = R"(
+    int function sum(int a, int b) {
+      return a + b;
+    }
+  )";
+  Tokenizer tokenizer(source);
+  const auto &tokens = tokenizer.tokenize();
+
+  Parser parser(tokens);
+  auto program = parser.parse();
+
+  auto functionNode = dynamic_cast<FunctionNode *>(program->children[0].get());
+  ASSERT_NE(functionNode, nullptr) << "First child should be a FunctionNode";
+  ASSERT_EQ(functionNode->returnType, "int")
+      << "Function return type should be 'int'";
+}
+
+TEST_F(ParserTest, ParseFunctionComplexBody) {
+  std::string source = R"(
+    void function complexFunction() {
+      int a = 10;
+      if (a > 5) {
+        print(a);
+      }
+    }
+  )";
+  Tokenizer tokenizer(source);
+  const auto &tokens = tokenizer.tokenize();
+
+  Parser parser(tokens);
+  auto program = parser.parse();
+
+  auto functionNode = dynamic_cast<FunctionNode *>(program->children[0].get());
+  ASSERT_NE(functionNode, nullptr) << "First child should be a FunctionNode";
+  // Additional assertions can be added here to validate the function body
+}
