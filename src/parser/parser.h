@@ -236,16 +236,6 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
   std::cout << peek().value << std::endl;
   if (match(TokenType::Punctuator, "{")) {
     return parseBlockStatement();
-  } else if (match(TokenType::Keyword, "print")) {
-    return parseConsoleLog();
-  } else if (match(TokenType::Keyword, "return")) {
-    return parseReturnStatement();
-  } else if (match(TokenType::Keyword, "") ||
-             match(TokenType::Keyword, "const")) {
-    return parseVariableDeclaration(previous().value);
-  } else if (match(TokenType::Keyword, "if")) {
-    std::cout << "if" << std::endl;
-    parseIfStatement();
   }
 
   return parseExpression();
@@ -803,7 +793,7 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
   while (!check(TokenType::Punctuator, "}") && !isAtEnd()) {
     try {
       block->statements.push_back(std::unique_ptr<StatementNode>(
-          dynamic_cast<StatementNode *>(parseStatement().release())));
+          dynamic_cast<StatementNode *>(parseDeclaration().release())));
     } catch (const std::runtime_error &e) {
       error(e.what()); // Handle parsing errors in each statement
     }
@@ -816,15 +806,15 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
 }
 
 std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
-  // Consume the 'if' keyword
-  consume(TokenType::Keyword, "if", "Expected 'if'");
-
+  std::cout << peek().value << std::endl;
   // Consume the opening parenthesis '('
   consume(TokenType::Punctuator, "(", "Expected '(' after 'if'");
 
+  std::cout << peek().value << std::endl;
   // Parse the condition expression
   auto condition = parseExpression();
 
+  std::cout << peek().value << std::endl;
   // Consume the closing parenthesis ')'
   consume(TokenType::Punctuator, ")", "Expected ')' after if condition");
 
