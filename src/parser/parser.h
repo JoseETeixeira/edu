@@ -172,7 +172,7 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
     return node;
   } else if (match(TokenType::Keyword, "template")) {
     return parseTemplateDeclaration();
-  } else if (match(TokenType::Keyword, "class")) {
+  } else if (peek().value == "class" && peek().type == TokenType::Declaration) {
     return parseClassDeclaration();
   } else if (peek().type == TokenType::Keyword &&
              peekNext().value == "function") {
@@ -233,7 +233,6 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseStatement() {
-  std::cout << peek().value << std::endl;
   if (peek().type == TokenType::Punctuator && peek().value == "{") {
     return parseBlockStatement();
   }
@@ -329,13 +328,11 @@ std::unique_ptr<ExpressionNode> Parser::parseEqualityExpression() {
                // operand expression.
 }
 std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression() {
-  std::cout << "Parsing comparison expression" << std::endl;
   auto left =
       parseAdditionExpression(); // Start with the next level of precedence.
 
   while (match(TokenType::Operator, "<") || match(TokenType::Operator, ">") ||
          match(TokenType::Operator, "<=") || match(TokenType::Operator, ">=")) {
-    std::cout << "Match for comparison" << std::endl;
 
     std::string operatorValue = previous().value;
     auto right =
@@ -547,7 +544,7 @@ std::unique_ptr<InputStatementNode> Parser::parseInputStatement() {
   return node;
 }
 std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
-  consume(TokenType::Keyword, "class", "Expected 'class' keyword");
+  consume(TokenType::Declaration, "class", "Expected 'class' keyword");
   auto classNameToken =
       consume(TokenType::Identifier, "", "Expected class name");
   std::string className = classNameToken.value;
@@ -578,19 +575,24 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseClassMember() {
+  std::cout << peek().value << std::endl;
   // Check if the member is a method
-  if (match(TokenType::Keyword, "function") ||
-      match(TokenType::Keyword, "async")) {
+  if (match(TokenType::Keyword, "") && isType(previous().value) &&
+      (peek().value == "async" || peek().value == "function")) {
+    std::cout << "Parsing function declaration" << std::endl;
     return parseFunctionDeclaration();
   }
   // Check if the member is a property
-  else if (match(TokenType::Keyword, "") && isType(previous().value)) {
+  else if (isType(peek().value)) {
+    std::cout << "Parsing property declaration" << std::endl;
     return parsePropertyDeclaration();
   }
   // Handle other types of class members
   // Example: parsing a constructor
   else if (match(TokenType::Keyword, "constructor")) {
     return parseConstructorDeclaration();
+  } else if (isType(peek().value)) {
+    return parsePropertyDeclaration();
   }
 
   throw std::runtime_error("Unsupported class member type");
@@ -809,15 +811,12 @@ std::unique_ptr<BlockStatementNode> Parser::parseBlockStatement() {
 }
 
 std::unique_ptr<IfStatementNode> Parser::parseIfStatement() {
-  std::cout << peek().value << std::endl;
   // Consume the opening parenthesis '('
   consume(TokenType::Punctuator, "(", "Expected '(' after 'if'");
 
-  std::cout << peek().value << std::endl;
   // Parse the condition expression
   auto condition = parseExpression();
 
-  std::cout << peek().value << std::endl;
   // Consume the closing parenthesis ')'
   consume(TokenType::Punctuator, ")", "Expected ')' after if condition");
 
