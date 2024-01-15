@@ -164,8 +164,6 @@ std::unique_ptr<ProgramNode> Parser::parse() {
 // Main Parsing Methods
 
 std::unique_ptr<ASTNode> Parser::parseDeclaration() {
-  std::cout << peek().value << std::endl;
-  std::cout << peekNext().value << std::endl;
   if (match(TokenType::Keyword, "export")) {
     auto exportedItem = parseDeclaration();
     std::unique_ptr<ExportNode> node =
@@ -178,11 +176,9 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration() {
     return parseClassDeclaration();
   } else if (peek().type == TokenType::Keyword &&
              peekNext().value == "function") {
-    std::cout << "Parsing function" << std::endl;
     return parseFunctionDeclaration();
   } else if (peek().type == TokenType::Keyword && peek().value == "async" &&
              peekNext().value == "function") {
-    std::cout << "Parsing async function" << std::endl;
     return parseFunctionDeclaration();
   } else if (match(TokenType::Keyword, "interface")) {
     return parseInterfaceDeclaration();
@@ -227,7 +223,6 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter() {
     // Parse parameter type if present
     paramType = parseType();
   }
-  std::cout << paramType->typeName << std::endl;
   std::string paramName =
       consume(TokenType::Identifier, "", "Expected parameter name").value;
 
@@ -473,6 +468,10 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression() {
     return parseAnonymousFunction();
   } else if (peek().value == "new") {
     return parseAnonymousFunction();
+  } else if (match(TokenType::Punctuator, "(")) {
+    auto expr = parseExpression();
+    consume(TokenType::Punctuator, ")", "Expected ')' after expression");
+    return expr;
   } else {
     throw std::runtime_error("Unexpected token in primary expression");
   }
@@ -500,7 +499,6 @@ bool Parser::isType(const std::string &keyword) {
 }
 
 std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog() {
-  std::cout << peek().value << std::endl;
 
   // Parse the expression to be logged
   auto expression = parseExpression();
@@ -654,7 +652,6 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   // Check for return type
   if (peek().type == TokenType::Keyword && isType(peek().value)) {
     returnType = peek().value;
-    std::cout << "return type: " << returnType << std::endl;
     advance(); // Consume return type
   }
 
@@ -664,8 +661,6 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
   // Get the function name
   std::string functionName =
       consume(TokenType::Identifier, "", "Expected function name").value;
-
-  std::cout << "functionName: " << functionName << std::endl;
 
   // Consume the opening parenthesis '(' of the parameter list
   consume(TokenType::Punctuator, "(", "Expected '(' after function name");
@@ -680,7 +675,6 @@ std::unique_ptr<FunctionNode> Parser::parseFunctionDeclaration() {
 
   // Consume the closing parenthesis ')' of the parameter list
   consume(TokenType::Punctuator, ")", "Expected ')' after parameters");
-  std::cout << "Here" << std::endl;
   // Parse the function body
   auto body = parseBlockStatement();
 

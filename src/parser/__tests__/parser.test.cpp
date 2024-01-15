@@ -155,8 +155,7 @@ TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
       dynamic_cast<FunctionParameterNode *>(functionNode->parameters[0].get());
   ASSERT_NE(param1, nullptr)
       << "First parameter should be a FunctionParameterNode";
-  ASSERT_EQ(param1->name, "param1")
-      << "First parameter name should be 'param1'";
+  ASSERT_EQ(param1->name, "a") << "First parameter name should be 'param1'";
   ASSERT_EQ(param1->type->typeName, "int")
       << "First parameter type should be 'int'";
 
@@ -164,8 +163,7 @@ TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
       dynamic_cast<FunctionParameterNode *>(functionNode->parameters[1].get());
   ASSERT_NE(param2, nullptr)
       << "Second parameter should be a FunctionParameterNode";
-  ASSERT_EQ(param2->name, "param2")
-      << "Second parameter name should be 'param2'";
+  ASSERT_EQ(param2->name, "b") << "Second parameter name should be 'param2'";
   ASSERT_EQ(param2->type->typeName, "float")
       << "Second parameter type should be 'float'";
 
