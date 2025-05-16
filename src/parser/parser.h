@@ -207,12 +207,13 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration()
     return parseClassDeclaration();
   }
   else if (peek().type == TokenType::Keyword &&
+           peekNext().type == TokenType::Declaration &&
            peekNext().value == "function")
   {
     return parseFunctionDeclaration();
   }
   else if (peek().type == TokenType::Keyword && peek().value == "async" &&
-           peekNext().value == "function")
+           peekNext().type == TokenType::Declaration && peekNext().value == "function")
   {
     return parseFunctionDeclaration();
   }
@@ -307,8 +308,67 @@ std::unique_ptr<ASTNode> Parser::parseStatement()
   {
     return parseBlockStatement();
   }
+  else if (peek().type == TokenType::Punctuator && peek().value == ";")
+  {
+    // Handle empty statements
+    advance(); // Consume the semicolon
+    return std::make_unique<ExpressionStatementNode>(
+        std::make_unique<NullLiteralNode>(previous().line), previous().line);
+  }
+  // Check for variable declaration with class instantiation
+  else if (isClassName(peek().value) &&
+           peekNext().type == TokenType::Identifier &&
+           peekNextNext().type == TokenType::Operator &&
+           peekNextNext().value == "=")
+  {
+    std::string typeName = peek().value;
+    advance(); // Consume the class name
 
-  return parseExpression();
+    std::string varName = peek().value;
+    advance(); // Consume the variable name
+
+    advance(); // Consume the equals sign
+
+    auto expr = parseExpression();
+
+    // Consume the semicolon
+    if (peek().type == TokenType::Punctuator && peek().value == ";")
+    {
+      advance(); // Consume the semicolon
+    }
+    else
+    {
+      std::cout << "Expected ';' after variable declaration, got: "
+                << "Type: " << static_cast<int>(peek().type)
+                << ", Value: '" << peek().value << "'" << std::endl;
+    }
+
+    auto varDecl = std::make_unique<VariableDeclarationNode>(varName, previous().line);
+    varDecl->typeName = typeName;
+    varDecl->initializer = std::move(expr);
+    varDecl->isConst = false; // Ensure it's not const
+
+    return varDecl;
+  }
+  // Parse an expression statement
+  else
+  {
+    auto expr = parseExpression();
+
+    // Consume the semicolon
+    if (peek().type == TokenType::Punctuator && peek().value == ";")
+    {
+      advance(); // Consume the semicolon
+    }
+    else
+    {
+      std::cout << "Expected ';' after expression, got: "
+                << "Type: " << static_cast<int>(peek().type)
+                << ", Value: '" << peek().value << "'" << std::endl;
+    }
+
+    return std::make_unique<ExpressionStatementNode>(std::move(expr), previous().line);
+  }
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseExpression()
@@ -323,7 +383,53 @@ std::unique_ptr<ExpressionNode> Parser::parseExpression()
   }
   else
   {
-    return parseAssignmentExpression();
+    auto expr = parseAssignmentExpression();
+
+    // Check for member access
+    while (peek().type == TokenType::Operator && peek().value == ".")
+    {
+      advance(); // Consume the dot
+
+      // Get the member name
+      std::string memberName = consume(TokenType::Identifier, "", "Expected member name after '.'").value;
+
+      // Create a member access expression
+      auto memberAccessNode = std::make_unique<MemberAccessExpressionNode>(previous().line);
+      memberAccessNode->object = std::move(expr);
+      memberAccessNode->memberName = memberName;
+
+      // Check if this is a method call
+      if (peek().type == TokenType::Punctuator && peek().value == "(")
+      {
+        advance(); // Consume the opening parenthesis
+
+        // Parse arguments
+        std::vector<std::unique_ptr<ExpressionNode>> arguments;
+        if (!check(TokenType::Punctuator, ")"))
+        {
+          do
+          {
+            arguments.push_back(parseExpression());
+          } while (match(TokenType::Punctuator, ","));
+        }
+
+        // Consume the closing parenthesis
+        consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
+
+        // Create a call expression
+        auto callNode = std::make_unique<CallExpressionNode>(previous().line);
+        callNode->callee = std::move(memberAccessNode);
+        callNode->arguments = std::move(arguments);
+
+        expr = std::move(callNode);
+      }
+      else
+      {
+        expr = std::move(memberAccessNode);
+      }
+    }
+
+    return expr;
   }
 }
 
@@ -545,7 +651,7 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression()
 
     if (match(TokenType::Punctuator, "("))
     {
-      // It's a function call
+      // It's a function call or object creation
       std::vector<std::unique_ptr<ExpressionNode>> arguments;
       if (!check(TokenType::Punctuator, ")"))
       {
@@ -601,9 +707,27 @@ std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression()
     consume(TokenType::Punctuator, ")", "Expected ')' after expression");
     return expr;
   }
+  else if (peek().type == TokenType::Operator && peek().value == ".")
+  {
+    // It's a member access expression
+    advance(); // Consume the dot
+    std::string memberName = consume(TokenType::Identifier, "", "Expected member name after '.'").value;
+
+    // Create a member access expression
+    std::unique_ptr<MemberAccessExpressionNode> memberAccessNode =
+        std::make_unique<MemberAccessExpressionNode>(previous().line);
+    memberAccessNode->memberName = memberName;
+
+    // The object is the result of the previous expression
+    memberAccessNode->object = parseExpression();
+
+    return memberAccessNode;
+  }
   else
   {
-    std::cout << "Unexpected token in primary expression" << std::endl;
+    std::cout << "Unexpected token in primary expression: "
+              << "Type: " << static_cast<int>(peek().type)
+              << ", Value: '" << peek().value << "'" << std::endl;
     throw std::runtime_error("Unexpected token in primary expression");
   }
 }
@@ -718,9 +842,17 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration()
 std::unique_ptr<ASTNode> Parser::parseClassMember()
 {
   std::cout << peek().value << std::endl;
+
+  // Check for constructor
+  if (peek().value == "constructor")
+  {
+    std::cout << "Parsing constructor declaration" << std::endl;
+    return parseConstructorDeclaration();
+  }
   // Check if the member is a method
-  if (peek().type == TokenType::Keyword && isType(peek().value) &&
-      (peekNext().value == "async" || peekNext().value == "function"))
+  else if (peek().type == TokenType::Keyword && isType(peek().value) &&
+           (peekNext().value == "async" ||
+            (peekNext().type == TokenType::Declaration && peekNext().value == "function")))
   {
     std::cout << "Parsing function declaration" << std::endl;
     return parseFunctionDeclaration();
@@ -731,19 +863,8 @@ std::unique_ptr<ASTNode> Parser::parseClassMember()
     std::cout << "Parsing property declaration" << std::endl;
     return parsePropertyDeclaration();
   }
-  // Handle other types of class members
-  // Example: parsing a constructor
-  else if (match(TokenType::Keyword, "constructor"))
-  {
-    return parseConstructorDeclaration();
-  }
-  else if (isType(peek().value))
-  {
-    return parsePropertyDeclaration();
-  }
 
-  std::cout << "Unsupported class member type" << std::endl;
-
+  std::cout << "Unsupported class member type: " << peek().value << std::endl;
   throw std::runtime_error("Unsupported class member type");
 }
 
@@ -786,11 +907,35 @@ std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration()
 
 std::unique_ptr<ASTNode> Parser::parseConstructorDeclaration()
 {
-  // Assuming a constructor is like a function but without a return type
+  // Consume the constructor keyword
+  consume(TokenType::Identifier, "constructor", "Expected 'constructor' keyword");
+
+  // Now consume the opening parenthesis
   consume(TokenType::Punctuator, "(", "Expected '(' after 'constructor'");
-  auto parameters = parseParameters();
-  consume(TokenType::Punctuator, ")",
-          "Expected ')' after constructor parameters");
+
+  // Parse parameters manually
+  std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
+
+  if (!check(TokenType::Punctuator, ")"))
+  {
+    do
+    {
+      // Parse the type of the parameter
+      auto type = parseType();
+
+      // Parse the name of the parameter
+      std::string paramName =
+          consume(TokenType::Identifier, "", "Expected parameter name").value;
+
+      // Create a FunctionParameterNode and add it to the parameters vector
+      std::unique_ptr<FunctionParameterNode> parameter =
+          std::make_unique<FunctionParameterNode>(paramName, previous().line);
+      parameter->type = std::move(type);
+      parameters.push_back(std::move(parameter));
+    } while (match(TokenType::Punctuator, ","));
+  }
+
+  consume(TokenType::Punctuator, ")", "Expected ')' after constructor parameters");
 
   auto body = parseBlockStatement(); // Parse the constructor's body
 
@@ -875,8 +1020,17 @@ Parser::parseVariableDeclaration(std::string type)
     initializer = parseExpression();
   }
 
-  consume(TokenType::Punctuator, ";",
-          "Expected ';' after variable declaration");
+  // Consume the semicolon if present
+  if (peek().type == TokenType::Punctuator && peek().value == ";")
+  {
+    advance(); // Consume the semicolon
+  }
+  else
+  {
+    std::cout << "Expected ';' after variable declaration, got: "
+              << "Type: " << static_cast<int>(peek().type)
+              << ", Value: '" << peek().value << "'" << std::endl;
+  }
 
   std::unique_ptr<VariableDeclarationNode> node =
       std::make_unique<VariableDeclarationNode>(variableName, previous().line);
@@ -1093,11 +1247,19 @@ std::unique_ptr<StatementNode> Parser::parseExpressionStatement()
   // Parse the expression
   auto expr = parseExpression();
 
-  // Consume the semicolon at the end of the expression statement
-  consume(TokenType::Punctuator, ";", "Expected ';' after expression");
+  // Consume the semicolon if present
+  if (peek().type == TokenType::Punctuator && peek().value == ";")
+  {
+    advance(); // Consume the semicolon
+  }
+  else
+  {
+    std::cout << "Expected ';' after expression, got: "
+              << "Type: " << static_cast<int>(peek().type)
+              << ", Value: '" << peek().value << "'" << std::endl;
+  }
 
   // Return the expression wrapped in a StatementNode
-  // Assuming you have a wrapper node for this purpose, or modify as needed
   return std::make_unique<ExpressionStatementNode>(std::move(expr),
                                                    previous().line);
 }
@@ -1459,7 +1621,7 @@ std::unique_ptr<ExpressionNode> Parser::parseLiteral()
   else if (previous().type == TokenType::Character)
   {
     char value = previous().value[0];
-    return std::make_unique<CharacterLiteralNode>(value, previous().line);
+    return std::make_unique<CharLiteralNode>(value, previous().line);
   }
   // Add more cases as needed for other types of literals
   std::cout << "Expected literal" << std::endl;

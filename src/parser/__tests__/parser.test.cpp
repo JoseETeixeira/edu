@@ -2,12 +2,14 @@
 #include <gtest/gtest.h>
 
 // Fixture for Parser tests
-class ParserTest : public ::testing::Test {
+class ParserTest : public ::testing::Test
+{
 protected:
 };
 
 // Variable Declaration Tests
-TEST_F(ParserTest, ParseIntVariableDeclaration) {
+TEST_F(ParserTest, ParseIntVariableDeclaration)
+{
   std::string source = "int myVar = 42;";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
@@ -34,7 +36,8 @@ TEST_F(ParserTest, ParseIntVariableDeclaration) {
   ASSERT_EQ(initializer->value, 42) << "Initializer value should be 42";
 }
 
-TEST_F(ParserTest, ParseBoolVariableDeclaration) {
+TEST_F(ParserTest, ParseBoolVariableDeclaration)
+{
   std::string source = "bool myBool = true;";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
@@ -56,7 +59,8 @@ TEST_F(ParserTest, ParseBoolVariableDeclaration) {
   ASSERT_EQ(initializer->value, true) << "Initializer value should be true";
 }
 
-TEST_F(ParserTest, ParseCharVariableDeclaration) {
+TEST_F(ParserTest, ParseCharVariableDeclaration)
+{
   std::string source = "char myChar = 'a';";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
@@ -72,13 +76,14 @@ TEST_F(ParserTest, ParseCharVariableDeclaration) {
 
   ASSERT_EQ(varDeclNode->typeName, "char") << "Variable type should be 'char'";
   auto initializer =
-      dynamic_cast<CharacterLiteralNode *>(varDeclNode->initializer.get());
+      dynamic_cast<CharLiteralNode *>(varDeclNode->initializer.get());
   ASSERT_NE(initializer, nullptr)
       << "Initializer should be a CharacterLiteralNode";
   ASSERT_EQ(initializer->value, 'a') << "Initializer value should be 'a'";
 }
 
-TEST_F(ParserTest, ParseFloatVariableDeclaration) {
+TEST_F(ParserTest, ParseFloatVariableDeclaration)
+{
   std::string source = "float myFloat = 3.14;";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
@@ -102,7 +107,8 @@ TEST_F(ParserTest, ParseFloatVariableDeclaration) {
       << "Initializer value should be 3.14";
 }
 
-TEST_F(ParserTest, ParseStringVariableDeclaration) {
+TEST_F(ParserTest, ParseStringVariableDeclaration)
+{
   std::string source = "string myString = \"Hello\";";
   Tokenizer tokenizer(source);
   const auto &tokens = tokenizer.tokenize(); // Use auto& to avoid copying
@@ -127,7 +133,8 @@ TEST_F(ParserTest, ParseStringVariableDeclaration) {
 }
 
 // Function Declaration Tests
-TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
+TEST_F(ParserTest, ParseVoidFunctionDeclaration)
+{
   std::string source = R"(
     void function myFunction(int a, float b) {
       print(a+b);
@@ -172,7 +179,8 @@ TEST_F(ParserTest, ParseVoidFunctionDeclaration) {
   ASSERT_NE(bodyNode, nullptr) << "Function should have a body";
 }
 
-TEST_F(ParserTest, ParseFunctionWithReturnType) {
+TEST_F(ParserTest, ParseFunctionWithReturnType)
+{
   std::string source = R"(
     int function sum(int a, int b) {
       return a + b;
@@ -206,7 +214,8 @@ TEST_F(ParserTest, ParseFunctionWithReturnType) {
   ASSERT_EQ(param2->name, "b") << "Second parameter name should be 'b'";
 }
 
-TEST_F(ParserTest, ParseFunctionComplexBody) {
+TEST_F(ParserTest, ParseFunctionComplexBody)
+{
   std::string source = R"(
     void function complexFunction() {
       int a = 10;
@@ -249,7 +258,8 @@ TEST_F(ParserTest, ParseFunctionComplexBody) {
 
 // Class declaration tests
 
-TEST_F(ParserTest, ParseBasicClassDeclaration) {
+TEST_F(ParserTest, ParseBasicClassDeclaration)
+{
   std::string source = R"(
     class MyClass {
       // Class body
@@ -269,7 +279,8 @@ TEST_F(ParserTest, ParseBasicClassDeclaration) {
   ASSERT_EQ(classNode->name, "MyClass") << "Class name should be 'MyClass'";
 }
 
-TEST_F(ParserTest, ParseClassWithProperties) {
+TEST_F(ParserTest, ParseClassWithProperties)
+{
   std::string source = R"(
     class MyClass {
       int myProperty;
@@ -290,7 +301,8 @@ TEST_F(ParserTest, ParseClassWithProperties) {
   ASSERT_NE(propertyNode, nullptr) << "Property should be a PropertyNode";
 }
 
-TEST_F(ParserTest, ParseClassWithMethods) {
+TEST_F(ParserTest, ParseClassWithMethods)
+{
   std::string source = R"(
     class MyClass {
       void function myMethod() {
