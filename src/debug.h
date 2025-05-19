@@ -39,9 +39,6 @@ public:
     }
 };
 
-// Define the static member (this would go in a debug.cpp file)
-bool Debug::enabled = false;
-
 // Macro for easier debug logging
 #define DEBUG_LOG(...) Debug::log(__VA_ARGS__)
 #define DEBUG_ENABLED() Debug::isEnabled()

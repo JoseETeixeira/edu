@@ -7,7 +7,8 @@
 #include <filesystem>
 #include "parser/parser.h"
 #include "codegen/code_generator.h"
-#include "debug.h" // Add this include
+#include "interpreter/interpreter.h"
+#include "debug.h"
 
 namespace fs = std::filesystem;
 
@@ -36,22 +37,6 @@ bool writeFile(const std::string &filename, const std::string &content)
 
     file << content;
     return true;
-}
-
-// Function to transpile edu code to C++
-std::string transpileCode(const std::string &source)
-{
-    // Tokenize the source code
-    Tokenizer tokenizer(source);
-    std::vector<Token> tokens = tokenizer.tokenize();
-
-    // Parse the tokens into an AST
-    Parser parser(tokens);
-    std::unique_ptr<ProgramNode> program = parser.parse();
-
-    // Generate C++ code from the AST
-    CodeGenerator codeGenerator;
-    return codeGenerator.generate(program.get());
 }
 
 // Function to compile and run C++ code
@@ -91,14 +76,19 @@ void printUsage(const char *programName)
     std::cout << "Usage: " << programName << " [options] <input_file> [output_file]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  --transpile    Transpile the edu code to C++ without running it" << std::endl;
-    std::cout << "  --debug        Enable debug output during compilation" << std::endl;
+    std::cout << "  --compile      Transpile, compile, and run using C++ (slower)" << std::endl;
+    std::cout << "  --debug        Enable debug output" << std::endl;
     std::cout << "  --help         Display this help message" << std::endl;
+    std::cout << std::endl;
+    std::cout << "By default, edu code is directly interpreted (not transpiled)" << std::endl;
 }
 
 int main(int argc, char *argv[])
 {
     // Parse command line arguments
     bool transpileOnly = false;
+    bool compileMode = false;  // For transpile+compile+run
+    bool interpretMode = true; // Default mode is interpret
     bool debugMode = false;
     std::string inputFile;
     std::string outputFile;
@@ -109,16 +99,23 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Process arguments
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "--transpile") == 0)
         {
             transpileOnly = true;
+            interpretMode = false;
+        }
+        else if (strcmp(argv[i], "--compile") == 0)
+        {
+            compileMode = true;
+            interpretMode = false;
         }
         else if (strcmp(argv[i], "--debug") == 0)
         {
             debugMode = true;
+            Debug::setEnabled(true);
+            std::cout << "Debug mode enabled" << std::endl;
         }
         else if (strcmp(argv[i], "--help") == 0)
         {
@@ -142,62 +139,101 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (outputFile.empty() && transpileOnly)
+    if (debugMode)
     {
-        outputFile = inputFile + ".cpp";
-    }
-
-    // Enable debug logging if requested
-    Debug::setEnabled(debugMode);
-
-    DEBUG_LOG("Debug mode enabled");
-    DEBUG_LOG("Input file: ", inputFile);
-    if (!outputFile.empty())
-    {
-        DEBUG_LOG("Output file: ", outputFile);
+        std::cout << "Input file: " << inputFile << std::endl;
+        if (!outputFile.empty())
+        {
+            std::cout << "Output file: " << outputFile << std::endl;
+        }
     }
 
     // Read the input file
-    std::string source = readFile(inputFile);
-    if (source.empty())
+    std::string eduCode = readFile(inputFile);
+    if (eduCode.empty())
     {
         return 1;
     }
 
     try
     {
-        // Transpile the edu code to C++
-        std::string cppCode = transpileCode(source);
+        // Parse the edu code
+        Tokenizer tokenizer(eduCode);
+        auto tokens = tokenizer.tokenize();
+        Parser parser(tokens);
+        auto program = parser.parse();
 
-        if (transpileOnly)
+        if (!program)
         {
-            // Write the generated code to the output file
-            if (!writeFile(outputFile, cppCode))
+            std::cerr << "Error: Failed to parse the edu code" << std::endl;
+            return 1;
+        }
+
+        if (interpretMode)
+        {
+            // Directly interpret the AST
+            // std::cout << "Interpreting " << inputFile << "..." << std::endl;
+            DEBUG_LOG("Interpreting edu code directly");
+
+            Interpreter interpreter;
+            try
             {
+                interpreter.interpret(program.get());
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Runtime error during interpretation: " << e.what() << std::endl;
                 return 1;
             }
-            std::cout << "Successfully transpiled " << inputFile << " to " << outputFile << std::endl;
         }
         else
         {
-            // Create a temporary directory for compilation
-            std::string tempDir = fs::temp_directory_path().string();
-            DEBUG_LOG("Using temporary directory: ", tempDir);
-
-            // Compile and run the C++ code
-            int result = compileAndRun(cppCode, tempDir);
-            if (result != 0)
+            // Generate C++ code
+            CodeGenerator codeGen;
+            // Set debug mode separately if needed
+            if (debugMode)
             {
-                std::cerr << "Program exited with code " << result << std::endl;
-                return result;
+                Debug::setEnabled(true);
+            }
+            std::string cppCode = codeGen.generate(program.get());
+
+            if (transpileOnly)
+            {
+                // Write the C++ code to the output file or stdout
+                if (outputFile.empty())
+                {
+                    std::cout << cppCode << std::endl;
+                }
+                else
+                {
+                    if (!writeFile(outputFile, cppCode))
+                    {
+                        return 1;
+                    }
+                    std::cout << "C++ code written to " << outputFile << std::endl;
+                }
+            }
+            else if (compileMode)
+            {
+                // Create a temporary directory
+                std::string tempDir = ".";
+
+                // Compile and run the C++ code
+                std::cout << "Compiling and running " << inputFile << "..." << std::endl;
+                int result = compileAndRun(cppCode, tempDir);
+                if (result != 0)
+                {
+                    std::cerr << "Error: Program exited with code " << result << std::endl;
+                    return result;
+                }
             }
         }
-
-        return 0;
     }
     catch (const std::exception &e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
+
+    return 0;
 }

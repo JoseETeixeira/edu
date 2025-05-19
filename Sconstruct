@@ -1,6 +1,6 @@
 import os
 #env = Environment(CXX='g++', CXXFLAGS=['-std=c++20'])
-env = Environment( CXXFLAGS=['-std=c++2a'])
+env = Environment(CXXFLAGS=['-std=c++2a'])
 
 def find_tests_in_directory(directory):
     test_files = []
@@ -34,10 +34,16 @@ test_files = find_tests_in_directory('src')
 gtest_main_src = Glob(os.path.join(gtest_dir, 'googletest/src/gtest_main.cc'))
 gtest_main_obj = env.Object(gtest_main_src)
 
-# Now include this object file in the Program call
-env.Program(target=os.path.join(tests_output_dir, 'runTests'),
-            source=test_files + gtest_objs + gtest_main_obj)
+# Include debug.cpp and binary_expression_fix.cpp in the test build
+common_src = ['src/debug.cpp', 'src/codegen/binary_expression_fix.cpp']
 
-# Build the main program
-main_source = ['src/main.cpp', 'src/codegen/binary_expression_fix.cpp']
+# Now include these files in the Program call for tests
+env.Program(target=os.path.join(tests_output_dir, 'runTests'),
+            source=test_files + gtest_objs + gtest_main_obj + common_src)
+
+# Build the main program with direct interpreter functionality
+main_source = ['src/main.cpp', 
+               'src/codegen/binary_expression_fix.cpp', 
+               'src/debug.cpp',
+               'src/interpreter/interpreter.cpp']  # Add the interpreter implementation
 env.Program(target='build/edu', source=main_source)

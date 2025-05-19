@@ -1,4 +1,5 @@
-// Complex test program for the edu language
+// CRIAR ESTE ARQUIVO: test_complex_fixed.edu
+// Fixed version without string + method call issues
 
 // Variable declarations with different types
 int a = 10;
@@ -91,13 +92,23 @@ void function main() {
   // Test MathUtils class
   MathUtils math = MathUtils();
   
-  // Test arithmetic operations
-  print("Addition: 15 + 7 = " + math.add(15, 7));
-  print("Subtraction: 15 - 7 = " + math.subtract(15, 7));
-  print("Multiplication: 15 * 7 = " + math.multiply(15, 7));
-  print("Division: 15 / 7 = " + math.divide(15, 7));
-  print("Power: 2^8 = " + math.power(2, 8));
+  // Test arithmetic operations - Fixed to avoid string + method calls
+  int result1 = math.add(15, 7);
+  print("Addition: 15 + 7 = " + result1);
+  
+  int result2 = math.subtract(15, 7);
+  print("Subtraction: 15 - 7 = " + result2);
+  
+  int result3 = math.multiply(15, 7);
+  print("Multiplication: 15 * 7 = " + result3);
+  
+  float result4 = math.divide(15, 7);
+  print("Division: 15 / 7 = " + result4);
+  
+  int result5 = math.power(2, 8);
+  print("Power: 2^8 = " + result5);
   
   // Test division by zero handling
-  print("Division by zero test: " + math.divide(10, 0));
+  float result6 = math.divide(10, 0);
+  print("Division by zero test: " + result6);
 }
