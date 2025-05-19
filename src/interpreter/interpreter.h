@@ -23,6 +23,7 @@ class ExpressionStatementNode;
 class ExpressionNode;
 class ConsoleLogNode;
 class InputStatementNode;
+class ForStatementNode;
 class VariableExpressionNode;
 class AssignmentExpressionNode;
 class BinaryExpressionNode;
@@ -282,6 +283,7 @@ private:
     void executeVariableDeclaration(VariableDeclarationNode *node);
     void executeIfStatement(IfStatementNode *node);
     void executeWhileStatement(WhileStatementNode *node);
+    void executeForStatement(ForStatementNode *node);
     void executeReturnStatement(ReturnStatementNode *node);
     void executeExpressionStatement(ExpressionStatementNode *node);
     void executeConsoleLog(ConsoleLogNode *node);

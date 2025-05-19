@@ -387,6 +387,10 @@ void Interpreter::execute(ASTNode *node)
     {
         executeWhileStatement(whileNode);
     }
+    else if (auto forNode = dynamic_cast<ForStatementNode *>(node))
+    {
+        executeForStatement(forNode);
+    }
     else if (auto returnNode = dynamic_cast<ReturnStatementNode *>(node))
     {
         executeReturnStatement(returnNode);
@@ -691,6 +695,59 @@ void Interpreter::executeWhileStatement(WhileStatementNode *node)
     {
         execute(node->body.get());
     }
+}
+
+void Interpreter::executeForStatement(ForStatementNode *node)
+{
+    // Create a new environment for the for loop
+    std::shared_ptr<Environment> previous = this->environment;
+    this->environment = std::make_shared<Environment>(this->environment);
+
+    try
+    {
+        // Execute initializer once
+        if (node->initializer)
+        {
+            execute(node->initializer.get());
+        }
+
+        // Execute condition, body, and increment in a loop
+        while (!node->condition || evaluate(node->condition.get()).asBool())
+        {
+            // Execute the loop body
+            if (node->body)
+            {
+                execute(node->body.get());
+            }
+
+            // Execute the increment expression
+            if (node->increment)
+            {
+                evaluate(node->increment.get());
+            }
+
+            // If no condition is provided, break after one iteration (do-once loop)
+            if (!node->condition)
+            {
+                break;
+            }
+        }
+    }
+    catch (const ReturnException &e)
+    {
+        // Restore the previous environment and re-throw the return
+        this->environment = previous;
+        throw;
+    }
+    catch (const std::exception &e)
+    {
+        // Handle other exceptions and restore environment
+        this->environment = previous;
+        throw;
+    }
+
+    // Restore the previous environment
+    this->environment = previous;
 }
 
 void Interpreter::executeReturnStatement(ReturnStatementNode *node)

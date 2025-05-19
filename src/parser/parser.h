@@ -1269,17 +1269,18 @@ std::unique_ptr<IfStatementNode> Parser::parseIfStatement()
 
 std::unique_ptr<ForStatementNode> Parser::parseForStatement()
 {
-  // Consume the 'for' keyword
-  consume(TokenType::Keyword, "for", "Expected 'for'");
+  // The 'for' keyword has already been consumed in parseDeclaration()
 
   // Consume the opening parenthesis '('
   consume(TokenType::Punctuator, "(", "Expected '(' after 'for'");
 
   // Parse the initializer
   std::unique_ptr<StatementNode> initializer;
-  if (match(TokenType::Keyword, "") || match(TokenType::Keyword, ""))
+  if (isType(peek().value)) // Check for type names like "int", "string", etc.
   {
-    initializer = parseVariableDeclaration(previous().value);
+    std::string typeName = peek().value;
+    advance(); // Consume the type
+    initializer = parseVariableDeclaration(typeName);
   }
   else if (!match(TokenType::Punctuator, ";"))
   {
@@ -1348,7 +1349,6 @@ std::unique_ptr<StatementNode> Parser::parseExpressionStatement()
   return std::make_unique<ExpressionStatementNode>(std::move(expr),
                                                    previous().line);
 }
-
 std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement()
 {
   // The 'while' keyword has already been consumed in parseDeclaration

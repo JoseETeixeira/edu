@@ -1,6 +1,3 @@
-// CRIAR ESTE ARQUIVO: test_complex.edu 
-// No mesmo diretório onde estão os testes
-
 // Complex test program for the edu language
 
 // Variable declarations with different types
@@ -75,6 +72,37 @@ class MathUtils {
     }
     return result;
   }
+  
+  // Compute the sum of numbers from 1 to n using a for loop
+  int function sumNumbers(int n) {
+    int sum = 0;
+    for (int i = 1; i <= n; i = i + 1) {
+      sum = sum + i;
+    }
+    return sum;
+  }
+}
+
+// Function to calculate Fibonacci sequence using a for loop
+int function fibonacci(int n) {
+  if (n <= 0) {
+    return 0;
+  }
+  if (n == 1 || n == 2) {
+    return 1;
+  }
+  
+  int a = 1;
+  int b = 1;
+  int result = 0;
+  
+  for (int i = 3; i <= n; i = i + 1) {
+    result = a + b;
+    a = b;
+    b = result;
+  }
+  
+  return result;
 }
 
 // Main function to test all features
@@ -103,4 +131,17 @@ void function main() {
   
   // Test division by zero handling
   print("Division by zero test: " + math.divide(10, 0));
+  
+  // Test for loop functions
+  int sum10 = math.sumNumbers(10);
+  print("Sum of numbers from 1 to 10 = " + sum10);
+  
+  // Test Fibonacci function with for loop
+  print("Fibonacci(10) = " + fibonacci(10));
+  
+  // Test a simple for loop
+  print("Counting from 1 to 5:");
+  for (int i = 1; i <= 5; i = i + 1) {
+    print("Count: " + i);
+  }
 }

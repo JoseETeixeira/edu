@@ -382,7 +382,7 @@ private:
             }
             else if (auto *forNode = dynamic_cast<ForStatementNode *>(statement.get()))
             {
-                // Handle for statement
+                generateForStatement(forNode);
             }
             else if (auto *whileNode = dynamic_cast<WhileStatementNode *>(statement.get()))
             {
@@ -1842,6 +1842,97 @@ private:
             outputIndent();
             // Handle other statement types
             output << "// Non-block statement\n";
+            indentLevel--;
+            outputIndent();
+            output << "}";
+        }
+
+        output << "\n";
+    }
+
+    void generateForStatement(ForStatementNode *node)
+    {
+        output << "for (";
+
+        // Generate initializer
+        if (node->initializer)
+        {
+            if (auto *varDeclNode = dynamic_cast<VariableDeclarationNode *>(node->initializer.get()))
+            {
+                // For variable declarations, don't include the trailing semicolon and newline
+                // that would normally be added by generateVariableDeclaration
+                if (varDeclNode->isConst)
+                {
+                    output << "const ";
+                }
+
+                if (varDeclNode->typeName == "string")
+                {
+                    output << "std::string";
+                }
+                else
+                {
+                    output << varDeclNode->typeName;
+                }
+
+                output << " " << varDeclNode->name;
+
+                if (varDeclNode->initializer)
+                {
+                    output << " = ";
+                    generateExpressionHelper(varDeclNode->initializer.get());
+                }
+            }
+            else if (auto *exprStmtNode = dynamic_cast<ExpressionStatementNode *>(node->initializer.get()))
+            {
+                generateExpressionHelper(exprStmtNode->expression.get());
+            }
+        }
+
+        output << "; ";
+
+        // Generate condition
+        if (node->condition)
+        {
+            generateExpressionHelper(node->condition.get());
+        }
+
+        output << "; ";
+
+        // Generate increment
+        if (node->increment)
+        {
+            generateExpressionHelper(node->increment.get());
+        }
+
+        output << ") ";
+
+        // Generate body
+        if (auto *blockStmt = dynamic_cast<BlockStatementNode *>(node->body.get()))
+        {
+            generateBlockStatement(blockStmt);
+        }
+        else if (auto *ifStmt = dynamic_cast<IfStatementNode *>(node->body.get()))
+        {
+            generateIfStatement(ifStmt);
+        }
+        else
+        {
+            output << "{\n";
+            indentLevel++;
+            outputIndent();
+            // Handle other statement types in the body
+            if (auto *stmtNode = dynamic_cast<StatementNode *>(node->body.get()))
+            {
+                if (auto *returnNode = dynamic_cast<ReturnStatementNode *>(stmtNode))
+                {
+                    generateReturnStatement(returnNode);
+                }
+                else if (auto *exprStmtNode = dynamic_cast<ExpressionStatementNode *>(stmtNode))
+                {
+                    generateExpressionStatement(exprStmtNode);
+                }
+            }
             indentLevel--;
             outputIndent();
             output << "}";
