@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include "../debug.h"
 
 class Parser
 {
@@ -850,12 +851,12 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration()
 
 std::unique_ptr<ASTNode> Parser::parseClassMember()
 {
-  std::cout << peek().value << std::endl;
+  DEBUG_LOG(peek().value);
 
   // Check for constructor
   if (peek().value == "constructor")
   {
-    std::cout << "Parsing constructor declaration" << std::endl;
+    DEBUG_LOG("Parsing constructor declaration");
     return parseConstructorDeclaration();
   }
   // Check if the member is a method
@@ -863,22 +864,23 @@ std::unique_ptr<ASTNode> Parser::parseClassMember()
            (peekNext().value == "async" ||
             (peekNext().type == TokenType::Declaration && peekNext().value == "function")))
   {
-    std::cout << "Parsing function declaration" << std::endl;
+    DEBUG_LOG("Parsing function declaration");
     return parseFunctionDeclaration();
   }
   // Check if the member is a property
   else if (isType(peek().value))
   {
-    std::cout << "Parsing property declaration" << std::endl;
+    DEBUG_LOG("Parsing property declaration");
     return parsePropertyDeclaration();
   }
 
-  std::cout << "Unsupported class member type: " << peek().value << std::endl;
+  DEBUG_LOG("Unsupported class member type: ", peek().value);
   throw std::runtime_error("Unsupported class member type");
 }
 
 std::unique_ptr<ASTNode> Parser::parsePropertyDeclaration()
 {
+  DEBUG_LOG("int"); // This seems to be logging the type
   std::unique_ptr<TypeNode> propertyType;
   if (peek().type == TokenType::Keyword && isType(peek().value))
   {

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include "parser/parser.h"
 #include "codegen/code_generator.h"
+#include "debug.h" // Add this include
 
 namespace fs = std::filesystem;
 
@@ -90,6 +91,7 @@ void printUsage(const char *programName)
     std::cout << "Usage: " << programName << " [options] <input_file> [output_file]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  --transpile    Transpile the edu code to C++ without running it" << std::endl;
+    std::cout << "  --debug        Enable debug output during compilation" << std::endl;
     std::cout << "  --help         Display this help message" << std::endl;
 }
 
@@ -97,6 +99,7 @@ int main(int argc, char *argv[])
 {
     // Parse command line arguments
     bool transpileOnly = false;
+    bool debugMode = false;
     std::string inputFile;
     std::string outputFile;
 
@@ -112,6 +115,10 @@ int main(int argc, char *argv[])
         if (strcmp(argv[i], "--transpile") == 0)
         {
             transpileOnly = true;
+        }
+        else if (strcmp(argv[i], "--debug") == 0)
+        {
+            debugMode = true;
         }
         else if (strcmp(argv[i], "--help") == 0)
         {
@@ -140,6 +147,16 @@ int main(int argc, char *argv[])
         outputFile = inputFile + ".cpp";
     }
 
+    // Enable debug logging if requested
+    Debug::setEnabled(debugMode);
+
+    DEBUG_LOG("Debug mode enabled");
+    DEBUG_LOG("Input file: ", inputFile);
+    if (!outputFile.empty())
+    {
+        DEBUG_LOG("Output file: ", outputFile);
+    }
+
     // Read the input file
     std::string source = readFile(inputFile);
     if (source.empty())
@@ -165,6 +182,7 @@ int main(int argc, char *argv[])
         {
             // Create a temporary directory for compilation
             std::string tempDir = fs::temp_directory_path().string();
+            DEBUG_LOG("Using temporary directory: ", tempDir);
 
             // Compile and run the C++ code
             int result = compileAndRun(cppCode, tempDir);

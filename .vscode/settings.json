@@ -1,5 +1,6 @@
 {
   "files.associations": {
+    "*.gd": "gdscript",
     "*.tcc": "cpp",
     "array": "cpp",
     "atomic": "cpp",
@@ -84,7 +85,10 @@
     "xstring": "cpp",
     "xtr1common": "cpp",
     "xtree": "cpp",
-    "xutility": "cpp"
+    "xutility": "cpp",
+    "bitset": "cpp",
+    "codecvt": "cpp",
+    "regex": "cpp"
   },
   "cmake.configureOnOpen": false,
   "C_Cpp_Runner.cCompilerPath": "gcc",
@@ -126,10 +130,7 @@
   "C_Cpp_Runner.compilerArgs": [],
   "C_Cpp_Runner.linkerArgs": [],
   "C_Cpp_Runner.includePaths": [],
-  "C_Cpp_Runner.includeSearch": [
-    "*",
-    "**/*"
-  ],
+  "C_Cpp_Runner.includeSearch": ["*", "**/*"],
   "C_Cpp_Runner.excludeSearch": [
     "**/build",
     "**/build/**",

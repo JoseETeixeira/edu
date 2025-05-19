@@ -8,6 +8,7 @@
 #include <vector>
 #include <regex>
 #include "binary_expression_fix.h"
+#include "../debug.h"
 
 // Forward declarations
 class ProgramNode;
@@ -832,15 +833,15 @@ private:
 
     void generateMultiplicationExpression(MultiplicationExpressionNode *node)
     {
-        std::cerr << "Generating multiplication expression" << std::endl;
+        DEBUG_LOG("Generating multiplication expression");
 
         // Debug the right operand
         if (auto *callExprNode = dynamic_cast<CallExpressionNode *>(node->right.get()))
         {
-            std::cerr << "Right operand is a call expression" << std::endl;
+            DEBUG_LOG("Right operand is a call expression");
             if (auto *varExprNode = dynamic_cast<VariableExpressionNode *>(callExprNode->callee.get()))
             {
-                std::cerr << "Callee is: " << varExprNode->name << std::endl;
+                DEBUG_LOG("Callee is: ", varExprNode->name);
             }
         }
 
@@ -987,50 +988,53 @@ private:
             output << " ";
 
             // Debug output
-            std::cerr << "Return expression type: ";
-            if (auto *intLiteralNode = dynamic_cast<IntegerLiteralNode *>(node->expression.get()))
+            if (DEBUG_ENABLED())
             {
-                std::cerr << "IntegerLiteral" << std::endl;
-            }
-            else if (auto *floatLiteralNode = dynamic_cast<FloatingPointLiteralNode *>(node->expression.get()))
-            {
-                std::cerr << "FloatingPointLiteral" << std::endl;
-            }
-            else if (auto *stringLiteralNode = dynamic_cast<StringLiteralNode *>(node->expression.get()))
-            {
-                std::cerr << "StringLiteral" << std::endl;
-            }
-            else if (auto *boolLiteralNode = dynamic_cast<BooleanLiteralNode *>(node->expression.get()))
-            {
-                std::cerr << "BooleanLiteral" << std::endl;
-            }
-            else if (auto *varExprNode = dynamic_cast<VariableExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "VariableExpression" << std::endl;
-            }
-            else if (auto *callExprNode = dynamic_cast<CallExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "CallExpression" << std::endl;
-            }
-            else if (auto *addExprNode = dynamic_cast<AdditionExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "AdditionExpression" << std::endl;
-            }
-            else if (auto *subExprNode = dynamic_cast<SubtractionExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "SubtractionExpression" << std::endl;
-            }
-            else if (auto *mulExprNode = dynamic_cast<MultiplicationExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "MultiplicationExpression" << std::endl;
-            }
-            else if (auto *divExprNode = dynamic_cast<DivisionExpressionNode *>(node->expression.get()))
-            {
-                std::cerr << "DivisionExpression" << std::endl;
-            }
-            else
-            {
-                std::cerr << "Unknown" << std::endl;
+                DEBUG_LOG("Return expression type: ");
+                if (auto *intLiteralNode = dynamic_cast<IntegerLiteralNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("IntegerLiteral");
+                }
+                else if (auto *floatLiteralNode = dynamic_cast<FloatingPointLiteralNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("FloatingPointLiteral");
+                }
+                else if (auto *stringLiteralNode = dynamic_cast<StringLiteralNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("StringLiteral");
+                }
+                else if (auto *boolLiteralNode = dynamic_cast<BooleanLiteralNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("BooleanLiteral");
+                }
+                else if (auto *varExprNode = dynamic_cast<VariableExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("VariableExpression");
+                }
+                else if (auto *callExprNode = dynamic_cast<CallExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("CallExpression");
+                }
+                else if (auto *addExprNode = dynamic_cast<AdditionExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("AdditionExpression");
+                }
+                else if (auto *subExprNode = dynamic_cast<SubtractionExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("SubtractionExpression");
+                }
+                else if (auto *mulExprNode = dynamic_cast<MultiplicationExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("MultiplicationExpression");
+                }
+                else if (auto *divExprNode = dynamic_cast<DivisionExpressionNode *>(node->expression.get()))
+                {
+                    DEBUG_LOG("DivisionExpression");
+                }
+                else
+                {
+                    DEBUG_LOG("Unknown");
+                }
             }
             if (auto *intLiteralNode = dynamic_cast<IntegerLiteralNode *>(node->expression.get()))
             {
