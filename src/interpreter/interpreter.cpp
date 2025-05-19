@@ -391,6 +391,14 @@ void Interpreter::execute(ASTNode *node)
     {
         executeForStatement(forNode);
     }
+    else if (auto switchNode = dynamic_cast<SwitchStatementNode *>(node))
+    {
+        executeSwitchStatement(switchNode);
+    }
+    else if (auto breakNode = dynamic_cast<BreakStatementNode *>(node))
+    {
+        executeBreakStatement(breakNode);
+    }
     else if (auto returnNode = dynamic_cast<ReturnStatementNode *>(node))
     {
         executeReturnStatement(returnNode);
@@ -691,9 +699,25 @@ void Interpreter::executeIfStatement(IfStatementNode *node)
 
 void Interpreter::executeWhileStatement(WhileStatementNode *node)
 {
-    while (evaluate(node->condition.get()).asBool())
+    try
     {
-        execute(node->body.get());
+        while (evaluate(node->condition.get()).asBool())
+        {
+            try
+            {
+                execute(node->body.get());
+            }
+            catch (BreakException &)
+            {
+                // Break out of the loop
+                break;
+            }
+        }
+    }
+    catch (ReturnException &)
+    {
+        // Let return propagate up
+        throw;
     }
 }
 
@@ -711,26 +735,43 @@ void Interpreter::executeForStatement(ForStatementNode *node)
             execute(node->initializer.get());
         }
 
-        // Execute condition, body, and increment in a loop
-        while (!node->condition || evaluate(node->condition.get()).asBool())
+        try
         {
-            // Execute the loop body
-            if (node->body)
+            // Execute condition, body, and increment in a loop
+            while (!node->condition || evaluate(node->condition.get()).asBool())
             {
-                execute(node->body.get());
-            }
+                try
+                {
+                    // Execute the loop body
+                    if (node->body)
+                    {
+                        execute(node->body.get());
+                    }
+                }
+                catch (BreakException &)
+                {
+                    // Break out of the loop
+                    break;
+                }
 
-            // Execute the increment expression
-            if (node->increment)
-            {
-                evaluate(node->increment.get());
-            }
+                // Execute the increment expression
+                if (node->increment)
+                {
+                    evaluate(node->increment.get());
+                }
 
-            // If no condition is provided, break after one iteration (do-once loop)
-            if (!node->condition)
-            {
-                break;
+                // If no condition is provided, break after one iteration (do-once loop)
+                if (!node->condition)
+                {
+                    break;
+                }
             }
+        }
+        catch (ReturnException &)
+        {
+            // Let return propagate up
+            this->environment = previous;
+            throw;
         }
     }
     catch (const ReturnException &e)
@@ -748,6 +789,82 @@ void Interpreter::executeForStatement(ForStatementNode *node)
 
     // Restore the previous environment
     this->environment = previous;
+}
+
+void Interpreter::executeSwitchStatement(SwitchStatementNode *node)
+{
+    if (!node || !node->condition)
+    {
+        throw std::runtime_error("Invalid switch statement");
+    }
+
+    // Evaluate the switch expression
+    Value switchValue = evaluate(node->condition.get());
+
+    bool matchFound = false;
+    bool fallThrough = false;
+
+    try
+    {
+        // Iterate through all case clauses
+        for (const auto &caseClause : node->cases)
+        {
+            if (!caseClause)
+                continue;
+
+            // Check if this is a default case or if we found a match
+            if (caseClause->isDefault || fallThrough)
+            {
+                matchFound = true;
+            }
+            else if (caseClause->caseExpression)
+            {
+                // Evaluate the case expression
+                Value caseValue = evaluate(caseClause->caseExpression.get());
+
+                // Check if the values match
+                if (switchValue == caseValue)
+                {
+                    matchFound = true;
+                }
+            }
+
+            // If we found a match, execute the statements in this case
+            if (matchFound)
+            {
+                try
+                {
+                    for (const auto &statement : caseClause->statements)
+                    {
+                        execute(statement.get());
+                    }
+
+                    // Continue to next case (fall-through behavior)
+                    fallThrough = true;
+                }
+                catch (BreakException &)
+                {
+                    // Break encountered, exit the switch
+                    return;
+                }
+            }
+        }
+    }
+    catch (ReturnException &)
+    {
+        // Let return exceptions propagate up
+        throw;
+    }
+    catch (const std::exception &e)
+    {
+        throw std::runtime_error("Error in switch statement: " + std::string(e.what()));
+    }
+}
+
+void Interpreter::executeBreakStatement(BreakStatementNode *node)
+{
+    // Simply throw a BreakException to be caught by the enclosing loop or switch
+    throw BreakException();
 }
 
 void Interpreter::executeReturnStatement(ReturnStatementNode *node)
@@ -1484,3 +1601,4 @@ void Interpreter::defineNativeFunctions()
     defineNativeFunc("random", 0, [](const std::vector<Value> &args)
                      { return Value(static_cast<float>(rand()) / RAND_MAX); });
 }
+// executeSwitchStatement is already defined above

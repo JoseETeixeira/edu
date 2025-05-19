@@ -4,3 +4,4 @@ src/**/*.o
 src/**/*.obj
 
 results/
+.sconsign.dblite

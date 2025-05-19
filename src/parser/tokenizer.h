@@ -2,6 +2,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "../debug.h"
 
 enum class TokenType
 {
@@ -31,13 +32,18 @@ public:
 
   std::vector<Token> tokenize()
   {
+    DEBUG_LOG("=== Starting tokenization ===");
     std::vector<Token> tokens;
     Token token;
+
     do
     {
       token = nextToken();
       tokens.push_back(token);
+
     } while (token.type != TokenType::EndOfFile);
+
+    DEBUG_LOG("=== Finished tokenization with ", tokens.size(), " tokens ===");
     return tokens;
   }
 
@@ -327,31 +333,37 @@ private:
   Token operatorOrPunctuator()
   {
     char currentChar = source[position];
-    size_t start = position++;
 
+    // Handle punctuators first (single characters)
     if (isPunctuator(currentChar))
     {
+      position++; // Advance position BEFORE creating token
       return {TokenType::Punctuator, std::string(1, currentChar), line};
     }
     else
     {
       // Handle multi-character operators
+      size_t start = position;
+      position++; // Advance position for first character
+
       if (position < source.length())
       {
         std::string potentialOperator = source.substr(start, 2);
         if (isMultiCharacterOperator(potentialOperator))
         {
-          position++;
+          position++; // Advance position for second character
           return {TokenType::Operator, potentialOperator, line};
         }
       }
+
+      // Single character operator
       return {TokenType::Operator, std::string(1, currentChar), line};
     }
   }
 
   bool isPunctuator(char ch)
   {
-    static const std::string punctuators = ";,(){}[]";
+    static const std::string punctuators = ";,(){}[]:"; // Make sure colon is included!
     return punctuators.find(ch) != std::string::npos;
   }
 

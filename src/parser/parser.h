@@ -48,13 +48,23 @@ private:
   {
     if (isAtEnd())
       return false;
+
+    DEBUG_LOG("check() - Checking token: type=", static_cast<int>(peek().type),
+              " value='", peek().value, "' against expected type=", static_cast<int>(type),
+              " value='", expectedValue, "'");
+
     if (expectedValue != "")
     {
-      return peek().type == type && peek().value == expectedValue;
+      bool typeMatch = peek().type == type;
+      bool valueMatch = peek().value == expectedValue;
+      DEBUG_LOG("check() - Type match: ", typeMatch, " Value match: ", valueMatch);
+      return typeMatch && valueMatch;
     }
     else
     {
-      return peek().type == type;
+      bool typeMatch = peek().type == type;
+      DEBUG_LOG("check() - Type match only: ", typeMatch);
+      return typeMatch;
     }
   }
 
@@ -168,22 +178,32 @@ void Parser::error(const std::string &message)
 
 std::unique_ptr<ProgramNode> Parser::parse()
 {
-  auto program =
-      std::make_unique<ProgramNode>(0); // Assuming 0 as the starting line
+  DEBUG_LOG("=== Starting Parser::parse() ===");
+  auto program = std::make_unique<ProgramNode>(0); // Assuming 0 as the starting line
 
+  int declarationCount = 0;
   while (!isAtEnd())
   {
+    DEBUG_LOG("=== Parsing declaration #", declarationCount++, " ===");
+    DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "' line=", peek().line);
+
     try
     {
-      program->children.push_back(parseDeclaration());
+      auto declaration = parseDeclaration();
+      DEBUG_LOG("Successfully parsed declaration");
+      program->children.push_back(std::move(declaration));
     }
     catch (const std::runtime_error &e)
     {
+      DEBUG_LOG("Error parsing declaration: ", e.what());
       std::cout << e.what() << std::endl;
       throw std::runtime_error(e.what());
     }
+
+    DEBUG_LOG("After parsing declaration, current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
   }
 
+  DEBUG_LOG("=== Finished Parser::parse() with ", program->children.size(), " declarations ===");
   return program;
 }
 
@@ -191,8 +211,13 @@ std::unique_ptr<ProgramNode> Parser::parse()
 
 std::unique_ptr<ASTNode> Parser::parseDeclaration()
 {
+  DEBUG_LOG("=== Starting parseDeclaration ===");
+  DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+  DEBUG_LOG("Next token: type=", static_cast<int>(peekNext().type), " value='", peekNext().value, "'");
+
   if (match(TokenType::Keyword, "export"))
   {
+    DEBUG_LOG("Matched export");
     auto exportedItem = parseDeclaration();
     std::unique_ptr<ExportNode> node =
         std::make_unique<ExportNode>(previous().line);
@@ -201,88 +226,110 @@ std::unique_ptr<ASTNode> Parser::parseDeclaration()
   }
   else if (match(TokenType::Keyword, "template"))
   {
+    DEBUG_LOG("Matched template");
     return parseTemplateDeclaration();
   }
   else if (peek().value == "class" && peek().type == TokenType::Declaration)
   {
+    DEBUG_LOG("Matched class declaration");
     return parseClassDeclaration();
   }
   else if (peek().type == TokenType::Keyword &&
            peekNext().type == TokenType::Declaration &&
            peekNext().value == "function")
   {
+    DEBUG_LOG("Matched function with return type");
     return parseFunctionDeclaration();
   }
   else if (peek().type == TokenType::Keyword && peek().value == "async" &&
            peekNext().type == TokenType::Declaration && peekNext().value == "function")
   {
+    DEBUG_LOG("Matched async function");
     return parseFunctionDeclaration();
   }
   else if (match(TokenType::Keyword, "interface"))
   {
+    DEBUG_LOG("Matched interface");
     return parseInterfaceDeclaration();
   }
   else if (match(TokenType::Keyword, "if"))
   {
+    DEBUG_LOG("Matched if");
     return parseIfStatement();
   }
   else if (match(TokenType::Keyword, "for"))
   {
+    DEBUG_LOG("Matched for");
     return parseForStatement();
   }
   else if (match(TokenType::Keyword, "while"))
   {
+    DEBUG_LOG("Matched while");
     return parseWhileStatement();
   }
   else if (match(TokenType::Keyword, "return"))
   {
+    DEBUG_LOG("Matched return");
     return parseReturnStatement();
   }
   else if (match(TokenType::Keyword, "break"))
   {
+    DEBUG_LOG("Matched break");
     return parseBreakStatement();
   }
   else if (match(TokenType::Keyword, "continue"))
   {
+    DEBUG_LOG("Matched continue");
     return parseContinueStatement();
   }
-  else if (match(TokenType::Keyword, "switch"))
+  else if (check(TokenType::Keyword, "switch")) // Using check() instead of match()
   {
+    DEBUG_LOG("Matched switch");
     return parseSwitchStatement();
   }
   else if (match(TokenType::Keyword, "try"))
   {
+    DEBUG_LOG("Matched try");
     return parseTryCatchStatement();
   }
   else if (match(TokenType::Keyword, "export"))
   {
+    DEBUG_LOG("Matched export (duplicate)");
     return parseExportStatement();
   }
   else if (match(TokenType::Keyword, "import"))
   {
+    DEBUG_LOG("Matched import");
     return parseImportStatement();
   }
   else if (match(TokenType::Keyword, "null"))
   {
+    DEBUG_LOG("Matched null");
     return parseNullReference();
   }
-  else if (match(TokenType::Keyword, "print"))
+  else if (check(TokenType::Keyword, "print")) // Using check() instead of match()
   {
+    DEBUG_LOG("Matched print");
     return parseConsoleLog();
   }
   else if (match(TokenType::Keyword, "await"))
   {
+    DEBUG_LOG("Matched await");
     return parseAwaitExpression();
   }
   else if (match(TokenType::Keyword, "input"))
   {
+    DEBUG_LOG("Matched input");
     return parseInputStatement();
   }
   else if (match(TokenType::Keyword, "") ||
            match(TokenType::Keyword, "const"))
   {
+    DEBUG_LOG("Matched variable declaration");
     return parseVariableDeclaration(previous().value);
   }
+
+  DEBUG_LOG("No match found, falling back to parseStatement");
   return parseStatement();
 }
 
@@ -305,16 +352,67 @@ std::unique_ptr<FunctionParameterNode> Parser::parseFunctionParameter()
 
 std::unique_ptr<ASTNode> Parser::parseStatement()
 {
+  DEBUG_LOG("=== Starting parseStatement ===");
+  DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
   if (peek().type == TokenType::Punctuator && peek().value == "{")
   {
+    DEBUG_LOG("Parsing block statement");
     return parseBlockStatement();
   }
   else if (peek().type == TokenType::Punctuator && peek().value == ";")
   {
+    DEBUG_LOG("Parsing empty statement");
     // Handle empty statements
     advance(); // Consume the semicolon
     return std::make_unique<ExpressionStatementNode>(
         std::make_unique<NullLiteralNode>(previous().line), previous().line);
+  }
+  // Add handling for specific statement types
+  else if (peek().type == TokenType::Keyword && peek().value == "print")
+  {
+    DEBUG_LOG("Parsing print statement");
+    return parseConsoleLog();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "if")
+  {
+    DEBUG_LOG("Parsing if statement");
+    return parseIfStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "for")
+  {
+    DEBUG_LOG("Parsing for statement");
+    return parseForStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "while")
+  {
+    DEBUG_LOG("Parsing while statement");
+    return parseWhileStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "return")
+  {
+    DEBUG_LOG("Parsing return statement");
+    return parseReturnStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "break")
+  {
+    DEBUG_LOG("Parsing break statement");
+    return parseBreakStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "continue")
+  {
+    DEBUG_LOG("Parsing continue statement");
+    return parseContinueStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "switch")
+  {
+    DEBUG_LOG("Parsing switch statement");
+    return parseSwitchStatement();
+  }
+  else if (peek().type == TokenType::Keyword && peek().value == "try")
+  {
+    DEBUG_LOG("Parsing try statement");
+    return parseTryCatchStatement();
   }
   // Check for variable declaration with class instantiation
   else if (isClassName(peek().value) &&
@@ -322,6 +420,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement()
            peekNextNext().type == TokenType::Operator &&
            peekNextNext().value == "=")
   {
+    DEBUG_LOG("Parsing variable declaration with class instantiation");
     std::string typeName = peek().value;
     advance(); // Consume the class name
 
@@ -354,6 +453,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement()
   // Parse an expression statement
   else
   {
+    DEBUG_LOG("Parsing expression statement (fallback)");
     auto expr = parseExpression();
 
     // Consume the semicolon
@@ -842,16 +942,35 @@ bool Parser::isType(const std::string &keyword)
 
 std::unique_ptr<ConsoleLogNode> Parser::parseConsoleLog()
 {
+  DEBUG_LOG("=== Starting parseConsoleLog ===");
+  DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
+  // Consume the 'print' keyword first
+  consume(TokenType::Keyword, "print", "Expected 'print' keyword");
+  DEBUG_LOG("Consumed 'print' keyword");
+
+  // Consume the opening parenthesis
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'print'");
+  DEBUG_LOG("Consumed opening parenthesis");
 
   // Parse the expression to be logged
+  DEBUG_LOG("About to parse print expression");
   auto expression = parseExpression();
+  DEBUG_LOG("Parsed print expression");
+
+  // Consume the closing parenthesis
+  consume(TokenType::Punctuator, ")", "Expected ')' after print expression");
+  DEBUG_LOG("Consumed closing parenthesis");
 
   // Consume the semicolon at the end of the print statement
   consume(TokenType::Punctuator, ";", "Expected ';' after print statement");
+  DEBUG_LOG("Consumed semicolon");
 
   // Create and return a new ConsoleLogNode
   auto console_log_node = std::make_unique<ConsoleLogNode>(previous().line);
   console_log_node->expression = std::move(expression);
+
+  DEBUG_LOG("=== Finished parseConsoleLog ===");
   return console_log_node;
 }
 
@@ -1432,41 +1551,62 @@ std::unique_ptr<ContinueStatementNode> Parser::parseContinueStatement()
 
 std::unique_ptr<SwitchStatementNode> Parser::parseSwitchStatement()
 {
+  DEBUG_LOG("=== Starting parseSwitchStatement ===");
+  DEBUG_LOG("Current token before consume: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
+  // Debug the check() method result
+  DEBUG_LOG("check(TokenType::Keyword, 'switch') = ", check(TokenType::Keyword, "switch"));
+  DEBUG_LOG("TokenType::Keyword = ", static_cast<int>(TokenType::Keyword));
+
   // Consume the 'switch' keyword
-  consume(TokenType::Keyword, "switch",
-          "Expected 'switch' keyword in switch statement");
-
-  // Consume the opening parenthesis '('
-  consume(TokenType::Punctuator, "(", "Expected '(' after 'switch'");
-
-  // Parse the control expression for the switch
-  auto controlExpression = parseExpression();
-
-  // Consume the closing parenthesis ')'
-  consume(TokenType::Punctuator, ")",
-          "Expected ')' after switch control expression");
-
-  // Consume the opening brace '{' for the switch body
-  consume(TokenType::Punctuator, "{",
-          "Expected '{' at the start of switch body");
-
-  // Prepare a vector to hold the case clauses
-  std::vector<std::unique_ptr<CaseClauseNode>> cases;
-
-  // Loop to parse each case clause
-  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  try
   {
-    cases.push_back(parseCaseClause());
+    consume(TokenType::Keyword, "switch", "Expected 'switch' keyword in switch statement");
+    DEBUG_LOG("Successfully consumed 'switch' keyword");
+  }
+  catch (const std::exception &e)
+  {
+    DEBUG_LOG("ERROR: Failed to consume switch keyword: ", e.what());
+    throw;
   }
 
-  // Consume the closing brace '}' for the switch body
-  consume(TokenType::Punctuator, "}", "Expected '}' at the end of switch body");
+  // Continue with the rest of the method...
+  DEBUG_LOG("About to consume opening parenthesis");
+  consume(TokenType::Punctuator, "(", "Expected '(' after 'switch'");
+  DEBUG_LOG("Successfully consumed opening parenthesis");
 
-  // Create and return the switch statement node
+  DEBUG_LOG("About to parse control expression");
+  auto controlExpression = parseExpression();
+  DEBUG_LOG("Successfully parsed control expression");
+
+  consume(TokenType::Punctuator, ")", "Expected ')' after switch control expression");
+  DEBUG_LOG("Successfully consumed closing parenthesis");
+
+  consume(TokenType::Punctuator, "{", "Expected '{' at the start of switch body");
+  DEBUG_LOG("Successfully consumed opening brace, about to parse cases");
+
+  std::vector<std::unique_ptr<CaseClauseNode>> cases;
+  int caseCount = 0;
+  while (!check(TokenType::Punctuator, "}") && !isAtEnd())
+  {
+    DEBUG_LOG("Parsing case #", caseCount++);
+    DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
+    cases.push_back(parseCaseClause());
+    DEBUG_LOG("Finished parsing case #", caseCount - 1);
+  }
+
+  DEBUG_LOG("Finished parsing all cases, total count: ", cases.size());
+
+  consume(TokenType::Punctuator, "}", "Expected '}' at the end of switch body");
+  DEBUG_LOG("Successfully consumed closing brace, switch parsing complete");
+
   std::unique_ptr<SwitchStatementNode> node =
       std::make_unique<SwitchStatementNode>(previous().line);
   node->condition = std::move(controlExpression);
   node->cases = std::move(cases);
+
+  DEBUG_LOG("=== Finished parseSwitchStatement ===");
   return node;
 }
 
@@ -1860,60 +2000,99 @@ std::unique_ptr<AwaitExpressionNode> Parser::parseAwaitExpression()
 
 std::unique_ptr<CaseClauseNode> Parser::parseCaseClause()
 {
+  DEBUG_LOG("=== Starting parseCaseClause ===");
+  DEBUG_LOG("Current token: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
   std::unique_ptr<ExpressionNode> caseExpression;
   bool isDefault = false;
   int line = peek().line;
 
   if (match(TokenType::Keyword, "case"))
   {
+    DEBUG_LOG("Matched 'case' keyword");
     auto expr = parseExpression();
     caseExpression = std::unique_ptr<ExpressionNode>(
         dynamic_cast<ExpressionNode *>(expr.release()));
     if (!caseExpression)
     {
       std::cout << "Expected expression after 'case'" << std::endl;
-
       throw std::runtime_error("Expected expression after 'case'");
     }
+    DEBUG_LOG("Parsed case expression");
   }
   else if (match(TokenType::Keyword, "default"))
   {
+    DEBUG_LOG("Matched 'default' keyword");
     isDefault = true;
   }
   else
   {
+    DEBUG_LOG("ERROR: Expected 'case' or 'default', got: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
     std::cout << "Expected 'case' or 'default' keyword" << std::endl;
-
     throw std::runtime_error("Expected 'case' or 'default' keyword");
   }
 
   consume(TokenType::Punctuator, ":", "Expected ':' after case value");
+  DEBUG_LOG("Consumed colon, about to parse case statements");
 
   std::vector<std::unique_ptr<StatementNode>> statements;
-  while (!check(TokenType::Keyword, "case") &&
-         !check(TokenType::Keyword, "default") && !isAtEnd())
-  {
-    auto astNode = parseStatement();
-    StatementNode *statementNode = dynamic_cast<StatementNode *>(astNode.get());
-    if (statementNode)
-    {
-      statements.push_back(std::unique_ptr<StatementNode>(statementNode));
-      astNode.release(); // Release ownership from the original unique_ptr
-    }
-    else
-    {
-      std::cout << "Expected a statement node" << std::endl;
+  int statementCount = 0;
 
-      throw std::runtime_error("Expected a statement node");
+  // Parse statements until we hit another case, default, closing brace, or EOF
+  while (!check(TokenType::Keyword, "case") &&
+         !check(TokenType::Keyword, "default") &&
+         !check(TokenType::Punctuator, "}") &&
+         !isAtEnd())
+  {
+    DEBUG_LOG("Parsing statement #", statementCount++, " in case");
+    DEBUG_LOG("Current token before statement: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
+
+    try
+    {
+      auto astNode = parseStatement();
+      DEBUG_LOG("parseStatement() returned successfully, checking type...");
+
+      // Debug: Print the actual type of the returned node
+      DEBUG_LOG("Returned node type: ", typeid(*astNode).name());
+
+      StatementNode *statementNode = dynamic_cast<StatementNode *>(astNode.get());
+      if (statementNode)
+      {
+        statements.push_back(std::unique_ptr<StatementNode>(statementNode));
+        astNode.release(); // Release ownership from the original unique_ptr
+        DEBUG_LOG("Successfully added statement to case");
+      }
+      else
+      {
+        DEBUG_LOG("ERROR: Dynamic cast to StatementNode failed");
+        DEBUG_LOG("Actual node type: ", typeid(*astNode).name());
+        std::cout << "Expected a statement node" << std::endl;
+        throw std::runtime_error("Expected a statement node");
+      }
     }
+    catch (const std::exception &e)
+    {
+      DEBUG_LOG("ERROR in parseStatement(): ", e.what());
+      throw;
+    }
+
+    DEBUG_LOG("Current token after statement: type=", static_cast<int>(peek().type), " value='", peek().value, "'");
   }
+
+  DEBUG_LOG("Finished parsing case statements, count: ", statements.size());
+  DEBUG_LOG("Exit condition: case=", check(TokenType::Keyword, "case"),
+            " default=", check(TokenType::Keyword, "default"),
+            " brace=", check(TokenType::Punctuator, "}"),
+            " EOF=", isAtEnd());
 
   if (isDefault)
   {
+    DEBUG_LOG("Creating default case node");
     return std::make_unique<CaseClauseNode>(std::move(statements), line);
   }
   else
   {
+    DEBUG_LOG("Creating regular case node");
     return std::make_unique<CaseClauseNode>(std::move(caseExpression),
                                             std::move(statements), line);
   }

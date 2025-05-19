@@ -155,13 +155,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    DEBUG_LOG("=== Starting main program ===");
+    DEBUG_LOG("File content length: ", eduCode.length());
+    DEBUG_LOG("First 100 characters: '", eduCode.substr(0, 100), "'");
+
     try
     {
         // Parse the edu code
+        DEBUG_LOG("=== Creating tokenizer ===");
         Tokenizer tokenizer(eduCode);
+
+        DEBUG_LOG("=== Starting tokenization ===");
         auto tokens = tokenizer.tokenize();
+        DEBUG_LOG("=== Tokenization completed, got ", tokens.size(), " tokens ===");
+
+        DEBUG_LOG("=== Creating parser ===");
         Parser parser(tokens);
+
+        DEBUG_LOG("=== Starting parsing ===");
         auto program = parser.parse();
+        DEBUG_LOG("=== Parsing completed ===");
 
         if (!program)
         {

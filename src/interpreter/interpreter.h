@@ -24,6 +24,9 @@ class ExpressionNode;
 class ConsoleLogNode;
 class InputStatementNode;
 class ForStatementNode;
+class SwitchStatementNode;
+class CaseClauseNode;
+class BreakStatementNode;
 class VariableExpressionNode;
 class AssignmentExpressionNode;
 class BinaryExpressionNode;
@@ -129,6 +132,13 @@ public:
 
 private:
     Value returnValue;
+};
+
+// Exception class for handling break statements
+class BreakException : public std::exception
+{
+public:
+    BreakException() {}
 };
 
 // Function and method representation
@@ -284,6 +294,8 @@ private:
     void executeIfStatement(IfStatementNode *node);
     void executeWhileStatement(WhileStatementNode *node);
     void executeForStatement(ForStatementNode *node);
+    void executeSwitchStatement(SwitchStatementNode *node);
+    void executeBreakStatement(BreakStatementNode *node);
     void executeReturnStatement(ReturnStatementNode *node);
     void executeExpressionStatement(ExpressionStatementNode *node);
     void executeConsoleLog(ConsoleLogNode *node);

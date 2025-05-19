@@ -71,13 +71,6 @@ scons
 ./build/edu --debug your_program.edu
 ```
 
-### Performance Testing
-
-```bash
-# Run performance comparison
-./measure_times.sh
-```
-
 ## Examples
 
 ### Hello World
