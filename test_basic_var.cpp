@@ -6,7 +6,7 @@
 
 int a = 10;
 int b = 20;
-int main() {
-    std::cout << "a + b = " << (a + b) << std::endl;
+int main()
+{
+    std::cout << (a + b) << std::endl;
 }
-

@@ -4,9 +4,10 @@
 #include <memory>
 #include <functional>
 
-int a = 10;
-int b = 20;
 int main() {
-    std::cout << "a + b = " << (a + b) << std::endl;
+    int i = 0;
+    while (i < 5)  {
+        i = ;
+    }
 }
 

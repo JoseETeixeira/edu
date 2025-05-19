@@ -1,0 +1,8 @@
+// Simple test for while loop
+void function main() {
+  int i = 0;
+  while (i < 5) {
+    print(i);
+    i = i + 1;
+  }
+}

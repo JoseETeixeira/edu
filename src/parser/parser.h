@@ -588,9 +588,18 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression()
       left = std::make_unique<DivisionExpressionNode>(
           std::move(left), "/", std::move(right), previous().line);
     }
+    else if (match(TokenType::Operator, "%"))
+    {
+      auto right = parseUnaryExpression(); // Parse the right operand.
+      // Use the BinaryExpressionNode for modulo since we don't have a specific ModuloExpressionNode
+      auto binaryNode = std::make_unique<BinaryExpressionNode>("%", previous().line);
+      binaryNode->left = std::move(left);
+      binaryNode->right = std::move(right);
+      left = std::move(binaryNode);
+    }
     else
     {
-      break; // No more multiplication or division operators.
+      break; // No more multiplication, division, or modulo operators.
     }
   }
 
@@ -1266,9 +1275,7 @@ std::unique_ptr<StatementNode> Parser::parseExpressionStatement()
 
 std::unique_ptr<WhileStatementNode> Parser::parseWhileStatement()
 {
-  // Consume the 'while' keyword
-  consume(TokenType::Keyword, "while",
-          "Expected 'while' keyword in while statement");
+  // The 'while' keyword has already been consumed in parseDeclaration
 
   // Consume the opening parenthesis '('
   consume(TokenType::Punctuator, "(", "Expected '(' after 'while'");

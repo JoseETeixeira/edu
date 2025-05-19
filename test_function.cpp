@@ -4,9 +4,12 @@
 #include <memory>
 #include <functional>
 
-int a = 10;
-int b = 20;
-int main() {
-    std::cout << "a + b = " << (a + b) << std::endl;
+int add(int a, int b)
+{
+    return a + b;
 }
 
+int main()
+{
+    std::cout << add(5, 7) << std::endl;
+}

@@ -1,0 +1,6 @@
+int a = 10;
+int b = 20;
+
+void function main() {
+    print("a + b = " + (a + b));
+}

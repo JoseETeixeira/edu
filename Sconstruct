@@ -39,5 +39,5 @@ env.Program(target=os.path.join(tests_output_dir, 'runTests'),
             source=test_files + gtest_objs + gtest_main_obj)
 
 # Build the main program
-main_source = ['src/main.cpp']
+main_source = ['src/main.cpp', 'src/codegen/binary_expression_fix.cpp']
 env.Program(target='build/edu', source=main_source)

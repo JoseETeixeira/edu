@@ -1,0 +1,7 @@
+int function add(int a, int b) {
+    return a + b;
+}
+
+void function main() {
+    print(add(5, 7));
+}
