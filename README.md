@@ -27,14 +27,9 @@ Edu is a statically-typed programming language designed for readability and perf
 
 The following features are planned for future releases:
 
-- **For Loop Logic**: Enhanced for loop implementation with iterators
 - **Async/Await**: Automatic thread creation and management
 - **Module System**: Import functionality for code organization
 - **Package Installer**: Dependency management for Edu projects
-- **Interpreter Enhancements**:
-  - Template literals for string formatting
-  - Improved error messages
-  - Debugging capabilities
 - **Standard Library**: Build out core functionality for common operations
 
 ## Getting Started
