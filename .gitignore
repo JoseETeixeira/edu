@@ -2,3 +2,5 @@ build/**
 
 src/**/*.o
 src/**/*.obj
+
+results/
