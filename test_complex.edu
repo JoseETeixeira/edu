@@ -81,6 +81,40 @@ class MathUtils {
     }
     return sum;
   }
+  
+  // Function to convert day number to name using a switch statement
+  string function getDayName(int day) {
+    string dayName = "";
+    
+    switch (day) {
+      case 1:
+        dayName = "Monday";
+        break;
+      case 2:
+        dayName = "Tuesday";
+        break;
+      case 3:
+        dayName = "Wednesday";
+        break;
+      case 4:
+        dayName = "Thursday";
+        break;
+      case 5:
+        dayName = "Friday";
+        break;
+      case 6:
+        dayName = "Saturday";
+        break;
+      case 7:
+        dayName = "Sunday";
+        break;
+      default:
+        dayName = "Invalid day";
+        break;
+    }
+    
+    return dayName;
+  }
 }
 
 // Function to calculate Fibonacci sequence using a for loop
@@ -144,4 +178,12 @@ void function main() {
   for (int i = 1; i <= 5; i = i + 1) {
     print("Count: " + i);
   }
+  
+  // Test switch statement with day names
+  print("\nTesting switch statement with day names:");
+  print("Day 1: " + math.getDayName(1));
+  print("Day 3: " + math.getDayName(3));
+  print("Day 5: " + math.getDayName(5));
+  print("Day 7: " + math.getDayName(7));
+  print("Day 10: " + math.getDayName(10)); // Should print "Invalid day"
 }
