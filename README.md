@@ -16,16 +16,12 @@ Edu is a statically-typed programming language designed for readability and perf
 
 ## Performance
 
-The Edu language offers significant performance improvements with direct AST interpretation:
-
-| Implementation              | Average Time (seconds) |
-| --------------------------- | ---------------------- |
-| Edu (direct interpretation) | <0.001                 |
-| Edu (transpile+compile)     | 0.318                  |
-| Python                      | 0.006                  |
-| Node.js                     | 0.014                  |
-
-Direct interpretation is at least **300x faster** than the transpilation approach!
+| Implementation              | Time (seconds) | Relative Speed |
+| --------------------------- | -------------- | -------------- |
+| Edu (direct interpretation) | .002840        | 1.00x          |
+| Edu (transpile+compile)     | .314000        | 110.56x slower |
+| Python                      | .009000        | 3.16x slower   |
+| Node.js                     | .017880        | 6.29x slower   |
 
 ## Roadmap
 
