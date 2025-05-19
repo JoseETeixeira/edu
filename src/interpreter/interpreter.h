@@ -270,7 +270,8 @@ public:
 private:
     std::shared_ptr<Environment> environment;
     std::shared_ptr<Environment> globals;
-    Value lastValue; // Store the last evaluated value
+    Value lastValue;   // Store the last evaluated value
+    Value currentThis; // Current 'this' pointer for method calls
 
     // Execution methods for different node types
     void execute(ASTNode *node);

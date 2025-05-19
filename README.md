@@ -53,7 +53,7 @@ The following features are planned for future releases:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/edu.git
+git clone --recursive https://github.com/JoseETeixeira/edu
 cd edu
 
 # Install SCons (if not already installed)

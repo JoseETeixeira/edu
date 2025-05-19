@@ -544,30 +544,104 @@ std::unique_ptr<ExpressionNode> Parser::parseComparisonExpression()
 
 std::unique_ptr<ExpressionNode> Parser::parseAdditionExpression()
 {
-  auto left = parseMultiplicationExpression(); // Start with the next level of
-                                               // precedence.
+  auto left = parseMultiplicationExpression(); // Start with the next level of precedence
 
   while (true)
   {
     if (match(TokenType::Operator, "+"))
     {
-      auto right = parseMultiplicationExpression(); // Parse the right operand.
+      // Before parsing the right operand, check if it's a member access/method call
+      // If so, parse it completely with higher precedence
+      auto right = parseMultiplicationExpression(); // Parse the right operand
+
+      // Check if the right operand needs member access/method call parsing
+      while (peek().type == TokenType::Operator && peek().value == ".")
+      {
+        advance(); // Consume the dot
+        std::string memberName = consume(TokenType::Identifier, "", "Expected member name after '.'").value;
+
+        auto memberAccess = std::make_unique<MemberAccessExpressionNode>(previous().line);
+        memberAccess->object = std::move(right);
+        memberAccess->memberName = memberName;
+
+        // Check for method call
+        if (peek().type == TokenType::Punctuator && peek().value == "(")
+        {
+          advance(); // Consume opening parenthesis
+          std::vector<std::unique_ptr<ExpressionNode>> arguments;
+          if (!check(TokenType::Punctuator, ")"))
+          {
+            do
+            {
+              arguments.push_back(parseExpression());
+            } while (match(TokenType::Punctuator, ","));
+          }
+          consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
+
+          auto callExpr = std::make_unique<CallExpressionNode>(previous().line);
+          callExpr->callee = std::move(memberAccess);
+          callExpr->arguments = std::move(arguments);
+          right = std::move(callExpr);
+        }
+        else
+        {
+          right = std::move(memberAccess);
+        }
+      }
+
       left = std::make_unique<AdditionExpressionNode>(
           std::move(left), "+", std::move(right), previous().line);
     }
     else if (match(TokenType::Operator, "-"))
     {
-      auto right = parseMultiplicationExpression(); // Parse the right operand.
+      // Similar handling for subtraction
+      auto right = parseMultiplicationExpression(); // Parse the right operand
+
+      // Check if the right operand needs member access/method call parsing
+      while (peek().type == TokenType::Operator && peek().value == ".")
+      {
+        advance(); // Consume the dot
+        std::string memberName = consume(TokenType::Identifier, "", "Expected member name after '.'").value;
+
+        auto memberAccess = std::make_unique<MemberAccessExpressionNode>(previous().line);
+        memberAccess->object = std::move(right);
+        memberAccess->memberName = memberName;
+
+        // Check for method call
+        if (peek().type == TokenType::Punctuator && peek().value == "(")
+        {
+          advance(); // Consume opening parenthesis
+          std::vector<std::unique_ptr<ExpressionNode>> arguments;
+          if (!check(TokenType::Punctuator, ")"))
+          {
+            do
+            {
+              arguments.push_back(parseExpression());
+            } while (match(TokenType::Punctuator, ","));
+          }
+          consume(TokenType::Punctuator, ")", "Expected ')' after arguments");
+
+          auto callExpr = std::make_unique<CallExpressionNode>(previous().line);
+          callExpr->callee = std::move(memberAccess);
+          callExpr->arguments = std::move(arguments);
+          right = std::move(callExpr);
+        }
+        else
+        {
+          right = std::move(memberAccess);
+        }
+      }
+
       left = std::make_unique<SubtractionExpressionNode>(
           std::move(left), "-", std::move(right), previous().line);
     }
     else
     {
-      break; // No more addition or subtraction operators.
+      break; // No more addition or subtraction operators
     }
   }
 
-  return left; // Return the built expression node.
+  return left; // Return the built expression node
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression()

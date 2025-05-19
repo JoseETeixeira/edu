@@ -94,6 +94,11 @@ std::string Value::asString() const
     {
         return std::get<std::string>(value);
     }
+    // Special handling for boolean to ensure "true" or "false" string instead of "1" or "0"
+    if (type == Type::Boolean)
+    {
+        return std::get<bool>(value) ? "true" : "false";
+    }
     return toString();
 }
 
@@ -144,7 +149,21 @@ Value Value::operator+(const Value &other) const
     // Handle string concatenation
     if (type == Type::String || other.type == Type::String)
     {
-        return Value(toString() + other.toString());
+        // Special handling for boolean values in string concatenation
+        if (type == Type::Boolean)
+        {
+            std::string boolStr = std::get<bool>(value) ? "true" : "false";
+            return Value(boolStr + other.toString());
+        }
+        else if (other.type == Type::Boolean)
+        {
+            std::string boolStr = other.asBool() ? "true" : "false";
+            return Value(toString() + boolStr);
+        }
+        else
+        {
+            return Value(toString() + other.toString());
+        }
     }
 
     // Handle numeric addition
@@ -567,7 +586,68 @@ void Interpreter::executeVariableDeclaration(VariableDeclarationNode *node)
 
     if (node->initializer)
     {
-        initialValue = evaluate(node->initializer.get());
+        // First, check if the typeName corresponds to a class in the environment
+        bool isClassType = false;
+        try
+        {
+            Value classValue = environment->get(node->typeName);
+            isClassType = classValue.isClass();
+        }
+        catch (...)
+        {
+            // Class doesn't exist in environment, continue with normal processing
+        }
+
+        // Special handling for class instantiation
+        if (isClassType)
+        {
+            if (auto callExpr = dynamic_cast<CallExpressionNode *>(node->initializer.get()))
+            {
+                if (auto varExpr = dynamic_cast<VariableExpressionNode *>(callExpr->callee.get()))
+                {
+                    if (varExpr->name == node->typeName)
+                    {
+                        // This is definitely a class instantiation: TypeName var = TypeName();
+                        DEBUG_LOG("Detected class instantiation: ", node->typeName, " ", node->name);
+
+                        // Get the class from environment
+                        Value classValue = environment->get(node->typeName);
+                        auto klass = classValue.asObject<Class>();
+
+                        // Create arguments for constructor
+                        std::vector<Value> arguments;
+                        for (const auto &arg : callExpr->arguments)
+                        {
+                            arguments.push_back(evaluate(arg.get()));
+                        }
+
+                        // Create the instance
+                        initialValue = createInstance(klass, arguments);
+                        DEBUG_LOG("Created instance successfully, type: ", static_cast<int>(initialValue.getType()));
+                    }
+                    else
+                    {
+                        // Different function call, evaluate normally
+                        initialValue = evaluate(node->initializer.get());
+                    }
+                }
+                else
+                {
+                    // Complex call expression, evaluate normally
+                    initialValue = evaluate(node->initializer.get());
+                }
+            }
+            else
+            {
+                // Not a call expression, evaluate normally
+                initialValue = evaluate(node->initializer.get());
+            }
+        }
+        else
+        {
+            // Not a class type, evaluate normally
+            initialValue = evaluate(node->initializer.get());
+        }
 
         // Log the type of initial value for debugging
         DEBUG_LOG("Initial value for ", node->name, " type: ", static_cast<int>(initialValue.getType()),
@@ -584,14 +664,13 @@ void Interpreter::executeVariableDeclaration(VariableDeclarationNode *node)
             initialValue = Value(std::string(""));
         else if (node->typeName == "bool")
             initialValue = Value(false);
-        // Default to null for other types
+        // Default to null for other types (including classes without initializers)
     }
 
     environment->define(node->name, initialValue);
     DEBUG_LOG("Defined variable ", node->name, " type: ", static_cast<int>(initialValue.getType()),
               " value: ", initialValue.toString(), " is object: ", initialValue.isObject());
 }
-
 void Interpreter::executeIfStatement(IfStatementNode *node)
 {
     Value condition = evaluate(node->condition.get());
@@ -640,7 +719,16 @@ void Interpreter::executeConsoleLog(ConsoleLogNode *node)
     }
 
     Value value = evaluate(node->expression.get());
-    std::cout << value.toString() << std::endl;
+
+    // For boolean values, explicitly convert to "true" or "false" strings
+    if (value.getType() == Value::Type::Boolean)
+    {
+        std::cout << (value.asBool() ? "true" : "false") << std::endl;
+    }
+    else
+    {
+        std::cout << value.toString() << std::endl;
+    }
 }
 
 void Interpreter::executeInputStatement(InputStatementNode *node)
@@ -727,77 +815,63 @@ void Interpreter::executeClass(ClassNode *node)
 
 Value Interpreter::evaluateVariableExpression(VariableExpressionNode *node)
 {
-    return environment->get(node->name);
+    DEBUG_LOG("=== EVALUATING VARIABLE: ", node->name, " ===");
+
+    try
+    {
+        Value result = environment->get(node->name);
+        DEBUG_LOG("Variable '", node->name, "' found with type: ", static_cast<int>(result.getType()),
+                  ", isObject: ", result.isObject(),
+                  ", value: ", result.toString());
+        return result;
+    }
+    catch (const std::exception &e)
+    {
+        DEBUG_LOG("ERROR: Variable '", node->name, "' not found: ", e.what());
+        throw;
+    }
 }
 
 Value Interpreter::evaluateBinaryExpression(BinaryExpressionNode *node)
 {
-    // Special case for string concatenation with method calls
-    // Pattern: "string" + math.add(...)
+    DEBUG_LOG("Evaluating binary expression with operator: ", node->op);
+
     if (node->op == "+")
     {
-        DEBUG_LOG("Found addition expression, checking for string + method pattern");
+        // For addition, evaluate in standard left-to-right order
+        Value left = evaluate(node->left.get());
+        Value right = evaluate(node->right.get());
 
-        // For direct method access: "string" + math.add(...)
-        bool rightIsMemberAccess = dynamic_cast<MemberAccessExpressionNode *>(node->right.get()) != nullptr;
+        DEBUG_LOG("Left operand type: ", static_cast<int>(left.getType()));
+        DEBUG_LOG("Right operand type: ", static_cast<int>(right.getType()));
 
-        // For method call: "string" + math.add(...)
-        bool rightIsCallExpr = dynamic_cast<CallExpressionNode *>(node->right.get()) != nullptr;
-
-        if (rightIsMemberAccess || rightIsCallExpr)
+        // If either operand is a string, handle as string concatenation
+        if (left.getType() == Value::Type::String || right.getType() == Value::Type::String)
         {
-            DEBUG_LOG("Detected potential string + method pattern");
-
-            // Let's extract more info about what we're dealing with
-            if (rightIsCallExpr)
+            // Special handling for boolean values in concatenation
+            if (left.getType() == Value::Type::Boolean)
             {
-                auto callExpr = dynamic_cast<CallExpressionNode *>(node->right.get());
-                if (auto memberAccess = dynamic_cast<MemberAccessExpressionNode *>(callExpr->callee.get()))
-                {
-                    DEBUG_LOG("Call expression with member access callee: ",
-                              "object=", typeid(*memberAccess->object.get()).name(),
-                              ", member=", memberAccess->memberName);
-                }
+                std::string boolStr = left.asBool() ? "true" : "false";
+                return Value(boolStr + right.toString());
+            }
+            else if (right.getType() == Value::Type::Boolean)
+            {
+                std::string boolStr = right.asBool() ? "true" : "false";
+                return Value(left.toString() + boolStr);
             }
 
-            try
-            {
-                // Save current environment for cleanup
-                auto savedEnv = environment;
-                // Create a temporary scope for this evaluation
-                environment = std::make_shared<Environment>(environment);
-
-                // Evaluate right side first to ensure method calls work
-                DEBUG_LOG("Evaluating right side (method/call) first");
-                Value right = evaluate(node->right.get());
-                DEBUG_LOG("Right evaluated to type: ", static_cast<int>(right.getType()));
-
-                // Then evaluate left side
-                DEBUG_LOG("Evaluating left side");
-                Value left = evaluate(node->left.get());
-                DEBUG_LOG("Left evaluated to type: ", static_cast<int>(left.getType()));
-
-                // Restore original environment
-                environment = savedEnv;
-
-                // Perform string concatenation
-                DEBUG_LOG("Performing string + result concatenation");
-                return left + right;
-            }
-            catch (const std::exception &e)
-            {
-                DEBUG_LOG("Error in special handling: ", e.what(), ", falling back to standard evaluation");
-                // Fall through to standard evaluation
-            }
+            // Regular string concatenation
+            return Value(left.toString() + right.toString());
         }
+
+        // Regular numeric addition
+        return left + right;
     }
 
-    // Standard evaluation order for normal cases
+    // For other operators, use standard evaluation order
     Value left = evaluate(node->left.get());
     Value right = evaluate(node->right.get());
 
-    if (node->op == "+")
-        return left + right;
     if (node->op == "-")
         return left - right;
     if (node->op == "*")
@@ -820,23 +894,129 @@ Value Interpreter::evaluateBinaryExpression(BinaryExpressionNode *node)
 
 Value Interpreter::evaluateCallExpression(CallExpressionNode *node)
 {
+    DEBUG_LOG("=== EVALUATING CALL EXPRESSION ===");
+
+    // Check if this is a method call (object.method())
+    if (auto memberExpr = dynamic_cast<MemberAccessExpressionNode *>(node->callee.get()))
+    {
+        DEBUG_LOG("METHOD CALL DETECTED");
+        DEBUG_LOG("Method name: ", memberExpr->memberName);
+
+        // Debug the object expression before evaluating
+        if (auto varExpr = dynamic_cast<VariableExpressionNode *>(memberExpr->object.get()))
+        {
+            DEBUG_LOG("Object is a variable: ", varExpr->name);
+        }
+        else
+        {
+            DEBUG_LOG("Object is not a simple variable");
+        }
+
+        // First evaluate the object
+        DEBUG_LOG("About to evaluate object...");
+        Value object = evaluate(memberExpr->object.get());
+        DEBUG_LOG("Evaluated object type: ", static_cast<int>(object.getType()),
+                  ", isObject: ", object.isObject(),
+                  ", value: ", object.toString());
+
+        if (object.isObject())
+        {
+            auto obj = object.asObject<Object>();
+            if (obj && obj->klass)
+            {
+                DEBUG_LOG("Object has class: ", obj->klass->name);
+
+                // Check if the class has the method
+                if (obj->klass->hasMethod(memberExpr->memberName))
+                {
+                    DEBUG_LOG("Method found in class");
+
+                    // Get the method and bind it to the object
+                    auto method = obj->klass->getMethod(memberExpr->memberName);
+                    auto boundMethod = std::make_shared<Function>(
+                        method->declaration, std::static_pointer_cast<void>(obj));
+
+                    // Prepare arguments
+                    std::vector<Value> arguments;
+                    for (const auto &arg : node->arguments)
+                    {
+                        arguments.push_back(evaluate(arg.get()));
+                    }
+
+                    // Call the method
+                    DEBUG_LOG("Calling method with ", arguments.size(), " arguments");
+                    return callFunction(boundMethod, arguments);
+                }
+                else
+                {
+                    throw std::runtime_error("Method '" + memberExpr->memberName +
+                                             "' not found in class '" + obj->klass->name + "'");
+                }
+            }
+            else
+            {
+                DEBUG_LOG("Object has no class");
+                throw std::runtime_error("Object has no class");
+            }
+        }
+        else
+        {
+            // Error case - trying to call a method on a non-object
+            std::string typeName;
+            switch (object.getType())
+            {
+            case Value::Type::Null:
+                typeName = "null";
+                break;
+            case Value::Type::Boolean:
+                typeName = "boolean";
+                break;
+            case Value::Type::Integer:
+                typeName = "integer";
+                break;
+            case Value::Type::Float:
+                typeName = "float";
+                break;
+            case Value::Type::String:
+                typeName = "string";
+                break;
+            case Value::Type::Object:
+                typeName = "object";
+                break;
+            case Value::Type::Function:
+                typeName = "function";
+                break;
+            case Value::Type::Class:
+                typeName = "class";
+                break;
+            default:
+                typeName = "unknown";
+                break;
+            }
+
+            DEBUG_LOG("ERROR: Object evaluated to non-object type: ", typeName);
+            throw std::runtime_error("Cannot access property '" + memberExpr->memberName +
+                                     "' of non-object value (type: " + typeName + ")");
+        }
+    }
+
+    // Regular function call path
+    DEBUG_LOG("REGULAR FUNCTION CALL");
+
     // First evaluate the callee
     Value callee = evaluate(node->callee.get());
 
-    // Debug info about the callee
+    // Debug the callee type
     if (auto varExpr = dynamic_cast<VariableExpressionNode *>(node->callee.get()))
     {
-        DEBUG_LOG("Call to '", varExpr->name, "', callee type: ", static_cast<int>(callee.getType()));
-    }
-    else
-    {
-        DEBUG_LOG("Call expression, callee type: ", static_cast<int>(callee.getType()));
+        DEBUG_LOG("Calling function: ", varExpr->name);
     }
 
     // Prepare arguments
     std::vector<Value> arguments;
     for (const auto &arg : node->arguments)
     {
+        DEBUG_LOG("Evaluating argument...");
         arguments.push_back(evaluate(arg.get()));
     }
     DEBUG_LOG("Call with ", arguments.size(), " arguments");
@@ -844,7 +1024,7 @@ Value Interpreter::evaluateCallExpression(CallExpressionNode *node)
     // Handle different callee types
     if (callee.isFunction())
     {
-        // Regular function or method call
+        // Regular function call
         DEBUG_LOG("Calling a function");
         return callFunction(callee.asObject<Function>(), arguments);
     }
@@ -987,66 +1167,11 @@ Value Interpreter::evaluateAssignmentExpression(AssignmentExpressionNode *node)
 
 Value Interpreter::evaluateMemberAccessExpression(MemberAccessExpressionNode *node)
 {
-    // This is a critical path - first we'll check if this is a simple variable.property pattern
-    // before evaluating anything that could cause side effects
-    if (auto varExpr = dynamic_cast<VariableExpressionNode *>(node->object.get()))
-    {
-        std::string varName = varExpr->name;
-        DEBUG_LOG("Detected simple member access pattern: ", varName, ".", node->memberName);
+    DEBUG_LOG("Evaluating member access: ", node->memberName);
 
-        try
-        {
-            // Lookup the object directly in the environment
-            Value object = environment->get(varName);
-
-            // If it's an actual object (not a primitive), proceed with member access
-            if (object.isObject())
-            {
-                DEBUG_LOG("Direct environment lookup successful, object type: ",
-                          static_cast<int>(object.getType()));
-
-                auto obj = object.asObject<Object>();
-
-                // Check for field access
-                auto it = obj->fields.find(node->memberName);
-                if (it != obj->fields.end())
-                {
-                    DEBUG_LOG("Found field: ", node->memberName);
-                    return it->second;
-                }
-
-                // Check for method access
-                if (obj->klass && obj->klass->hasMethod(node->memberName))
-                {
-                    DEBUG_LOG("Found method: ", node->memberName);
-                    auto method = obj->klass->getMethod(node->memberName);
-                    auto boundMethod = std::make_shared<Function>(
-                        method->declaration, std::static_pointer_cast<void>(obj));
-                    return Value(std::static_pointer_cast<void>(boundMethod), Value::Type::Function);
-                }
-
-                throw std::runtime_error("Undefined property '" + node->memberName +
-                                         "' on object '" + varName + "'");
-            }
-            else
-            {
-                DEBUG_LOG("Object '", varName, "' is not an object, but a primitive type: ",
-                          static_cast<int>(object.getType()));
-            }
-        }
-        catch (const std::exception &e)
-        {
-            DEBUG_LOG("Failed during direct environment lookup: ", e.what());
-            // We'll fall through to the standard evaluation path
-        }
-    }
-
-    // Fallback: Evaluate the expression normally
-    DEBUG_LOG("Using regular evaluation for member access");
+    // Evaluate the object expression directly - no special handling for simple variables
     Value object = evaluate(node->object.get());
 
-    // Now that we have the object (either from direct access or evaluation),
-    // log its type and check if it's an object
     DEBUG_LOG("Member access on object of type: ", static_cast<int>(object.getType()),
               ", isObject: ", object.isObject(),
               ", for property: ", node->memberName);
@@ -1089,17 +1214,23 @@ Value Interpreter::evaluateMemberAccessExpression(MemberAccessExpressionNode *no
     }
 
     auto obj = object.asObject<Object>();
+    if (!obj)
+    {
+        throw std::runtime_error("Failed to cast to Object");
+    }
 
     // Check if the property exists in the object's fields
     auto it = obj->fields.find(node->memberName);
     if (it != obj->fields.end())
     {
+        DEBUG_LOG("Found field: ", node->memberName);
         return it->second;
     }
 
     // Check if the property exists as a method in the class
-    if (obj->klass->hasMethod(node->memberName))
+    if (obj->klass && obj->klass->hasMethod(node->memberName))
     {
+        DEBUG_LOG("Found method: ", node->memberName);
         auto method = obj->klass->getMethod(node->memberName);
         // Bind method to this object
         auto boundMethod = std::make_shared<Function>(method->declaration, std::static_pointer_cast<void>(obj));
@@ -1108,7 +1239,6 @@ Value Interpreter::evaluateMemberAccessExpression(MemberAccessExpressionNode *no
 
     throw std::runtime_error("Undefined property: " + node->memberName);
 }
-
 Value Interpreter::evaluateIntegerLiteral(IntegerLiteralNode *node)
 {
     return Value(node->value);
