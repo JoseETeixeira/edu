@@ -35,7 +35,11 @@ gtest_main_src = Glob(os.path.join(gtest_dir, 'googletest/src/gtest_main.cc'))
 gtest_main_obj = env.Object(gtest_main_src)
 
 # Include debug.cpp and binary_expression_fix.cpp in the test build
-common_src = ['src/debug.cpp', 'src/codegen/binary_expression_fix.cpp']
+common_src = ['src/debug.cpp', 'src/codegen/binary_expression_fix.cpp', 
+               'src/parser/parser.cpp',
+               'src/parser/tokenizer.cpp',
+               'src/parser/nodes.cpp',
+               'src/interpreter/interpreter.cpp']
 
 # Now include these files in the Program call for tests
 env.Program(target=os.path.join(tests_output_dir, 'runTests'),
@@ -45,5 +49,8 @@ env.Program(target=os.path.join(tests_output_dir, 'runTests'),
 main_source = ['src/main.cpp', 
                'src/codegen/binary_expression_fix.cpp', 
                'src/debug.cpp',
+               'src/parser/parser.cpp',
+               'src/parser/tokenizer.cpp',
+               'src/parser/nodes.cpp',
                'src/interpreter/interpreter.cpp']  # Add the interpreter implementation
 env.Program(target='build/edu', source=main_source)
