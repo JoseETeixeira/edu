@@ -1026,6 +1026,7 @@ std::unique_ptr<ClassNode> Parser::parseClassDeclaration()
   declaredClasses.insert(className);
 
   auto classNode = std::make_unique<ClassNode>(className, classNameToken.line);
+  classNode->baseClassName = baseClassName;
 
   // Consume the opening brace '{' of the class body
   consume(TokenType::Punctuator, "{", "Expected '{' after class name");

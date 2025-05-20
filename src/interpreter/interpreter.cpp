@@ -5,6 +5,7 @@
 #include <memory>
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 // Value implementation
 bool Value::asBool() const
@@ -965,10 +966,44 @@ void Interpreter::executeFunction(FunctionNode *node)
 
 void Interpreter::executeClass(ClassNode *node)
 {
+    std::cout << "DEBUG: Executing class declaration for: " << node->name << std::endl;
+
     // Create a new class
     auto klass = std::make_shared<Class>(node->name);
 
-    // Define methods
+    // Handle inheritance by setting up parent class relationship
+    if (!node->baseClassName.empty())
+    {
+        try
+        {
+            // Look up the parent class in the environment
+            Value parentClassValue = environment->get(node->baseClassName);
+
+            // Verify that it is a class
+            if (parentClassValue.isClass())
+            {
+                // Set the parent class reference
+                klass->parentClass = parentClassValue.asObject<Class>();
+                std::cout << "Class " << node->name << " extends " << node->baseClassName << std::endl;
+
+                // Copy parent class field names
+                if (klass->parentClass)
+                {
+                    klass->fieldNames = klass->parentClass->fieldNames;
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Base class '" + node->baseClassName + "' is not a class");
+            }
+        }
+        catch (const std::exception &e)
+        {
+            throw std::runtime_error("Cannot find base class '" + node->baseClassName + "': " + e.what());
+        }
+    }
+
+    // Define methods, collect field names, and look for constructor
     for (const auto &member : node->members)
     {
         if (auto method = dynamic_cast<FunctionNode *>(member.get()))
@@ -977,9 +1012,37 @@ void Interpreter::executeClass(ClassNode *node)
                 std::static_pointer_cast<FunctionNode>(
                     std::shared_ptr<ASTNode>((ASTNode *)method, [](ASTNode *) {})));
 
-            klass->methods[method->name] = function;
-            DEBUG_LOG("Added method ", method->name, " to class ", node->name);
+            // Check if this is a constructor
+            if (method->name == "constructor")
+            {
+                klass->constructor = function;
+                std::cout << "Found constructor for class " << node->name << std::endl;
+            }
+            else
+            {
+                klass->methods[method->name] = function;
+                std::cout << "Added method " << method->name << " to class " << node->name << std::endl;
+            }
         }
+        // Collect field names from variable declarations
+        else if (auto varDecl = dynamic_cast<VariableDeclarationNode *>(member.get()))
+        {
+            klass->fieldNames.push_back(varDecl->name);
+            DEBUG_LOG("Added field ", varDecl->name, " to class ", node->name);
+        }
+        // Support property declarations as well
+        else if (auto propDecl = dynamic_cast<PropertyDeclarationNode *>(member.get()))
+        {
+            klass->fieldNames.push_back(propDecl->name);
+            DEBUG_LOG("Added property ", propDecl->name, " to class ", node->name);
+        }
+    }
+
+    // If this class has a parent but no constructor, create a default constructor
+    // that calls the parent constructor
+    if (klass->parentClass && !klass->constructor)
+    {
+        // TODO: Implement default constructor that calls parent constructor
     }
 
     // Add the class to the environment
@@ -1468,6 +1531,25 @@ Value Interpreter::callFunction(const std::shared_ptr<Function> &function, const
     if (function->thisObject)
     {
         env->define("this", Value(function->thisObject, Value::Type::Object));
+
+        // If this is a method call, make object fields accessible as variables
+        try
+        {
+            auto object = std::static_pointer_cast<Object>(function->thisObject);
+            if (object && object->klass)
+            {
+                // Add all object fields to the environment
+                for (const auto &field : object->fields)
+                {
+                    env->define(field.first, field.second);
+                    DEBUG_LOG("Added field ", field.first, " to method environment");
+                }
+            }
+        }
+        catch (const std::exception &e)
+        {
+            DEBUG_LOG("Error setting up method fields: ", e.what());
+        }
     }
 
     try
@@ -1500,24 +1582,200 @@ Value Interpreter::callNativeFunction(const std::shared_ptr<NativeFunctionWrappe
 
 Value Interpreter::createInstance(std::shared_ptr<Class> klass, const std::vector<Value> &arguments)
 {
+    DEBUG_LOG("Detected class instantiation: ", klass->name);
+
     // Create a new object instance
     auto object = std::make_shared<Object>(klass);
 
     // Create a Value for this object right away
     Value objectValue(std::static_pointer_cast<void>(object), Value::Type::Object);
 
-    // Call constructor if it exists
-    if (klass->hasMethod("constructor"))
+    // For classes without constructors, use field names from class declaration
+    if (!klass->constructor)
     {
-        auto constructor = klass->getMethod("constructor");
+        // Initialize declared fields with default values
+        if (!klass->fieldNames.empty())
+        {
+            for (const auto &fieldName : klass->fieldNames)
+            {
+                // Initialize all fields with default values (0)
+                object->fields[fieldName] = Value(0);
+                DEBUG_LOG("Pre-initialized field '", fieldName, "' with default value");
+            }
+
+            // Apply arguments to fields by position
+            for (size_t i = 0; i < std::min(arguments.size(), klass->fieldNames.size()); i++)
+            {
+                object->fields[klass->fieldNames[i]] = arguments[i];
+                DEBUG_LOG("Mapped argument ", i, " to field '", klass->fieldNames[i], "'");
+            }
+
+            // For any additional arguments that don't match field names
+            for (size_t i = klass->fieldNames.size(); i < arguments.size(); i++)
+            {
+                std::string fieldName = "arg" + std::to_string(i);
+                object->fields[fieldName] = arguments[i];
+                DEBUG_LOG("Mapped extra argument ", i, " to generic field '", fieldName, "'");
+            }
+        }
+        else
+        {
+            // Fallback to generic field names if no fields were declared
+            for (size_t i = 0; i < arguments.size(); i++)
+            {
+                std::string fieldName = "arg" + std::to_string(i);
+                object->fields[fieldName] = arguments[i];
+                DEBUG_LOG("No field names found, mapped argument ", i, " to generic field '", fieldName, "'");
+            }
+        }
+    }
+
+    // First, initialize with parent class constructor if available and this class doesn't
+    // have its own constructor
+    bool constructorCalled = false;
+    bool hasConstructor = klass->constructor != nullptr;
+
+    if (!hasConstructor && klass->parentClass)
+    {
+        DEBUG_LOG("No constructor in ", klass->name, ", attempting to call parent constructor");
+        // Call parent constructor if available
+        if (klass->parentClass->constructor)
+        {
+            auto parentConstructor = klass->parentClass->constructor;
+            auto boundConstructor = std::make_shared<Function>(
+                parentConstructor->declaration,
+                std::static_pointer_cast<void>(object));
+
+            try
+            {
+                // Call parent constructor
+                callFunction(boundConstructor, arguments);
+                constructorCalled = true;
+                DEBUG_LOG("Parent constructor for class ", klass->parentClass->name, " executed");
+            }
+            catch (const std::exception &e)
+            {
+                DEBUG_LOG("Error in parent constructor: ", e.what());
+            }
+        }
+    }
+
+    // For classes with constructors, initialize with default values and then apply constructor logic
+    if (klass->constructor)
+    {
+        auto constructor = klass->constructor;
+        auto declaration = constructor->declaration;
+
+        // First identify what parameters the constructor takes
+        std::vector<std::string> paramNames;
+        for (const auto &param : declaration->parameters)
+        {
+            paramNames.push_back(param->name);
+        }
+
+        // First identify declared field names to initialize properly
+        std::vector<std::string> fieldsToInit = klass->fieldNames;
+
+        // First, scan constructor to find class variables (assignments to non-parameter variables)
+        std::set<std::string> classVars;
+        std::map<std::string, std::string> paramToClassVarMap;
+
+        // Track which parameter corresponds to which field
+        std::map<std::string, std::string> paramToFieldMap;
+
+        if (declaration->body)
+        {
+            // Scan statements in constructor body to find assignments
+            for (const auto &stmt : declaration->body->statements)
+            {
+                if (auto exprStmt = dynamic_cast<ExpressionStatementNode *>(stmt.get()))
+                {
+                    if (auto assignExpr = dynamic_cast<AssignmentExpressionNode *>(exprStmt->expression.get()))
+                    {
+                        // Check if left side is a variable that might be a field
+                        if (auto leftVar = dynamic_cast<VariableExpressionNode *>(assignExpr->left.get()))
+                        {
+                            std::string fieldName = leftVar->name;
+
+                            // Check if this variable is in the field list or is a non-parameter
+                            bool isField = std::find(klass->fieldNames.begin(), klass->fieldNames.end(), fieldName) != klass->fieldNames.end();
+
+                            bool isParameter = std::find(paramNames.begin(), paramNames.end(), fieldName) != paramNames.end();
+
+                            if (isField || !isParameter)
+                            {
+                                classVars.insert(fieldName);
+                                DEBUG_LOG("Identified class field: ", fieldName);
+
+                                // If right side is a parameter reference, create mapping
+                                if (auto rightVar = dynamic_cast<VariableExpressionNode *>(assignExpr->right.get()))
+                                {
+                                    std::string paramName = rightVar->name;
+                                    if (std::find(paramNames.begin(), paramNames.end(), paramName) != paramNames.end())
+                                    {
+                                        // This is a parameter-to-field assignment
+                                        paramToClassVarMap[paramName] = fieldName;
+                                        DEBUG_LOG("Found assignment mapping parameter '", paramName,
+                                                  "' to field '", fieldName, "'");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Initialize all declared fields from class declaration
+        for (const auto &fieldName : klass->fieldNames)
+        {
+            object->fields[fieldName] = Value(0);
+            DEBUG_LOG("Pre-initialized field '", fieldName, "' from class declaration");
+        }
+
+        // Initialize parameter fields
+        for (const auto &paramName : paramNames)
+        {
+            object->fields[paramName] = Value(0);
+            DEBUG_LOG("Pre-initialized parameter '", paramName, "' with default value");
+        }
+
+        // Initialize any other detected class variables
+        for (const auto &classVar : classVars)
+        {
+            if (object->fields.find(classVar) == object->fields.end())
+            {
+                object->fields[classVar] = Value(0);
+                DEBUG_LOG("Pre-initialized class variable '", classVar, "' with default value");
+            }
+        }
+
+        // Now apply the actual argument values to parameters and mapped fields
+        for (size_t i = 0; i < declaration->parameters.size() && i < arguments.size(); i++)
+        {
+            std::string paramName = declaration->parameters[i]->name;
+            object->fields[paramName] = arguments[i];
+            DEBUG_LOG("Set parameter '", paramName, "' with argument ", i);
+
+            // If this parameter maps to a class field via constructor assignment, assign the argument value there
+            auto it = paramToClassVarMap.find(paramName);
+            if (it != paramToClassVarMap.end())
+            {
+                object->fields[it->second] = arguments[i];
+                DEBUG_LOG("Mapped parameter ", paramName, " (arg #", i, ") to field ", it->second);
+            }
+        }
 
         // Create a function with this bound to the new object
-        auto boundConstructor = std::make_shared<Function>(constructor->declaration, std::static_pointer_cast<void>(object));
+        auto boundConstructor = std::make_shared<Function>(
+            constructor->declaration,
+            std::static_pointer_cast<void>(object));
 
         try
         {
             // Call constructor
             callFunction(boundConstructor, arguments);
+            constructorCalled = true;
             DEBUG_LOG("Constructor for class ", klass->name, " executed successfully");
         }
         catch (const std::exception &e)
@@ -1526,11 +1784,36 @@ Value Interpreter::createInstance(std::shared_ptr<Class> klass, const std::vecto
             // Continue despite constructor error - object is still created
         }
     }
-    else
+    else if (!constructorCalled)
     {
-        DEBUG_LOG("No constructor found for class ", klass->name);
-    }
+        // Legacy approach - look for a method named "constructor"
+        if (klass->hasMethod("constructor"))
+        {
+            auto constructor = klass->getMethod("constructor");
 
+            // Create a function with this bound to the new object
+            auto boundConstructor = std::make_shared<Function>(
+                constructor->declaration,
+                std::static_pointer_cast<void>(object));
+
+            try
+            {
+                // Call constructor
+                callFunction(boundConstructor, arguments);
+                constructorCalled = true;
+                DEBUG_LOG("Legacy constructor for class ", klass->name, " executed successfully");
+            }
+            catch (const std::exception &e)
+            {
+                DEBUG_LOG("Error in legacy constructor for class ", klass->name, ": ", e.what());
+                // Continue despite constructor error - object is still created
+            }
+        }
+        else
+        {
+            DEBUG_LOG("No constructor found for class ", klass->name);
+        }
+    }
     return objectValue;
 }
 

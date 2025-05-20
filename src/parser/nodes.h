@@ -76,9 +76,10 @@ public:
 class ClassNode : public ASTNode
 {
 public:
-  ClassNode(const std::string &name, int line) : ASTNode(line), name(name) {}
+  ClassNode(const std::string &name, int line) : ASTNode(line), name(name), baseClassName("") {}
 
   std::string name;
+  std::string baseClassName; // Name of the parent class (if any)
   std::vector<std::unique_ptr<ASTNode>> members;
 };
 

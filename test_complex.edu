@@ -140,6 +140,74 @@ int function fibonacci(int n) {
 }
 
 // Main function to test all features
+
+
+// Define a base Shape class
+class Shape {
+  constructor() {
+    print("Shape constructor called");
+  }
+  
+  string function getType() {
+    return "Generic Shape";
+  }
+  
+  float function area() {
+    print("Base area() method called");
+    return 0.0;
+  }
+  
+  string function describe() {
+    return "This is a " + this.getType() + " with area: " + this.area();
+  }
+}
+
+// Define a Rectangle class that extends Shape
+class Rectangle extends Shape {
+  float width;
+  float height;
+  
+  constructor(float h, float w) {
+    print("Rectangle constructor called");
+    width = w;
+    height = h;
+  }
+  
+  string function getType() {
+    return "Rectangle";
+  }
+  
+  float function area() {
+    return width * height;
+  }
+  
+  float function perimeter() {
+    return 2 * (width + height);
+  }
+
+  string function describe() {
+    return "This is a " + this.getType() + " with area: " + this.area() + " and width:" + width ;
+  }
+}
+
+// Test inheritance function
+void function testInheritance() {
+  print("\nTesting class inheritance:");
+  
+  // Create instances and test inheritance
+  Shape genericShape = Shape();
+  print("Generic Shape Type: " + genericShape.getType());
+  print("Generic Shape Area: " + genericShape.area());
+  print("Generic Shape Description: " + genericShape.describe());
+  
+  Rectangle rect = Rectangle(5.0, 3.0);
+  print("Rectangle Type: " + rect.getType());  // Overridden method
+  print("Rectangle Area: " + rect.area());     // Overridden method
+  print("Rectangle Perimeter: " + rect.perimeter());  // New method
+  print("Rectangle Description: " + rect.describe());  // Inherited method using overridden methods
+}
+
+// Call the test function
 void function main() {
   // Test basic variable operations
   print(greeting);
@@ -186,4 +254,5 @@ void function main() {
   print("Day 5: " + math.getDayName(5));
   print("Day 7: " + math.getDayName(7));
   print("Day 10: " + math.getDayName(10)); // Should print "Invalid day"
+  testInheritance();
 }

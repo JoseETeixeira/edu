@@ -189,6 +189,17 @@ int main(int argc, char *argv[])
             DEBUG_LOG("Interpreting edu code directly");
 
             Interpreter interpreter;
+
+            // Debug class declarations before interpreting
+            std::cout << "Class Declaration Debug:" << std::endl;
+            for (const auto &token : tokens)
+            {
+                if (token.type == TokenType::Declaration && token.value == "class")
+                {
+                    std::cout << "Found class declaration token at line " << token.line << std::endl;
+                }
+            }
+
             try
             {
                 interpreter.interpret(program.get());

@@ -27,8 +27,8 @@ Edu is a statically-typed programming language designed for readability and perf
 
 The following features are planned for future releases:
 
+- **Export/Import Keywords**: Allow to export functionality from one script to be read in another
 - **Break in for loop**: Allow to break a for loop mid-execution
-- **Class Inheritance**: Inherit methods from parent class
 - **Async/Await**: Automatic thread creation and management
 - **Module System**: Import functionality for code organization
 - **Package Installer**: Dependency management for Edu projects

@@ -170,32 +170,59 @@ struct Class
 {
     std::string name;
     std::map<std::string, std::shared_ptr<Function>> methods;
+    std::shared_ptr<Function> constructor; // Constructor method
+    std::shared_ptr<Class> parentClass;
+    std::vector<std::string> fieldNames; // Store field names from declarations
 
-    Class(const std::string &name) : name(name) {}
+    Class(const std::string &name) : name(name), constructor(nullptr), parentClass(nullptr) {}
 
     bool hasMethod(const std::string &name) const
     {
-        return methods.find(name) != methods.end();
+        // Check if the method exists in this class
+        if (methods.find(name) != methods.end())
+        {
+            return true;
+        }
+
+        // If not found in this class, check the parent class if it exists
+        if (parentClass)
+        {
+            return parentClass->hasMethod(name);
+        }
+
+        return false;
     }
 
     std::shared_ptr<Function> getMethod(const std::string &name) const
     {
+        // First check if the method exists in this class
         auto it = methods.find(name);
         if (it != methods.end())
         {
             return it->second;
         }
+
+        // If not found in this class, check the parent class if it exists
+        if (parentClass)
+        {
+            return parentClass->getMethod(name);
+        }
+
         return nullptr;
     }
 };
+
+// Forward declarations
+class Environment;
 
 // Object representation
 struct Object
 {
     std::shared_ptr<Class> klass;
     std::map<std::string, Value> fields;
+    std::shared_ptr<Environment> environment;
 
-    Object(std::shared_ptr<Class> klass) : klass(klass) {}
+    Object(std::shared_ptr<Class> klass) : klass(klass), environment(nullptr) {}
 };
 
 // Environment to store variables during execution
