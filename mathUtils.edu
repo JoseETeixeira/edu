@@ -1,0 +1,18 @@
+// Named export: you can export multiple things by name
+
+export int MAX_VALUE = 100;
+
+// Add function
+export int function add(int a, int b) {
+  return a + b;
+}
+
+// Subtract function 
+export int function subtract(int a, int b) {
+  return a - b;
+}
+
+// Multiply function
+export int function multiply(int a, int b) {
+  return a * b;
+}

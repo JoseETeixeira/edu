@@ -189,6 +189,8 @@ int main(int argc, char *argv[])
             DEBUG_LOG("Interpreting edu code directly");
 
             Interpreter interpreter;
+            // Set the global interpreter instance for module function execution
+            Interpreter::setInstance(&interpreter);
 
             // Debug class declarations before interpreting
             std::cout << "Class Declaration Debug:" << std::endl;

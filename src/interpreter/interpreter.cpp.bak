@@ -2,7 +2,6 @@
 #include "../parser/nodes.h"     // Add the include for the node definitions
 #include "../parser/parser.h"    // Include for Parser and Tokenizer
 #include "../parser/tokenizer.h" // Include for Token
-#include "module_handler.h"      // Include for module function registry
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -12,8 +11,6 @@
 #include <set>
 #include <filesystem>
 
-// Initialize static global interpreter pointer
-Interpreter *Interpreter::globalInterpreter = nullptr;
 // Value implementation
 bool Value::asBool() const
 {
@@ -493,9 +490,6 @@ std::shared_ptr<Module> Interpreter::loadModule(const std::string &modulePath)
         // Store the environment in the module for later reference
         module->exports = moduleEnv;
 
-        // Register the module environment with our registry
-        gModuleRegistry.registerModule(modulePath, moduleEnv);
-
         try
         {
             // First pass to collect declarations
@@ -655,162 +649,6 @@ void Interpreter::collectExport(ExportNode *node, std::shared_ptr<Module> module
     }
 }
 
-// Execute a module function body directly without going through callFunction again
-// This breaks the recursion cycle between interpreter and module registry
-Value Interpreter::executeModuleFunctionBody(std::shared_ptr<Function> function,
-                                             std::shared_ptr<Environment> env,
-                                             const std::vector<Value> &args)
-{
-    // Basic validation
-    if (!function)
-    {
-        std::cerr << "Cannot execute module function: null function pointer" << std::endl;
-        return Value();
-    }
-
-    // If this is a wrapper, use the original function if available
-    std::shared_ptr<Function> execFunction = function;
-    if (function->importedFunction)
-    {
-        std::cout << "Using original function from imported reference" << std::endl;
-        execFunction = function->importedFunction;
-    }
-
-    // Additional checks for declaration and body
-    if (!execFunction->declaration)
-    {
-        std::cerr << "Cannot execute module function: no declaration" << std::endl;
-        return Value();
-    }
-
-    if (!execFunction->declaration->body)
-    {
-        std::cerr << "Cannot execute module function: no function body" << std::endl;
-        return Value();
-    }
-
-    std::cout << "Directly executing module function body" << std::endl;
-
-    // Set up the environment with argument values
-    auto paramNames = execFunction->getParameterNames();
-    size_t paramCount = execFunction->getParameterCount();
-
-    // Bind arguments to parameters
-    for (size_t i = 0; i < paramCount && i < args.size(); i++)
-    {
-        std::cout << "  Binding param " << paramNames[i] << " = " << args[i].toString() << std::endl;
-        env->define(paramNames[i], args[i]);
-    }
-
-    // Store the previous environment and set the new one for execution
-    std::shared_ptr<Environment> previousEnv = environment;
-    environment = env;
-
-    try
-    {
-        // Print diagnostics about the function
-        DEBUG_LOG("Executing function: ");
-        if (execFunction->data && !execFunction->data->name.empty())
-        {
-            DEBUG_LOG(execFunction->data->name);
-        }
-        else if (!execFunction->originalFunctionName.empty())
-        {
-            DEBUG_LOG(execFunction->originalFunctionName);
-        }
-        else
-        {
-            DEBUG_LOG("(unnamed)");
-        }
-
-        // Safely get statement count
-        size_t statementCount = 0;
-        try
-        {
-            statementCount = execFunction->declaration->body->statements.size();
-            std::cout << "Function has " << statementCount << " statements" << std::endl;
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "Error accessing statements: " << e.what() << std::endl;
-            environment = previousEnv; // Restore environment before returning
-            return Value();
-        }
-
-        // Special handling for simple functions with a single return
-        if (statementCount == 1)
-        {
-            try
-            {
-                auto stmt = execFunction->declaration->body->statements[0].get();
-                if (stmt && (typeid(*stmt) == typeid(ReturnStatementNode)))
-                {
-                    auto returnStmt = static_cast<ReturnStatementNode *>(stmt);
-                    if (returnStmt->expression)
-                    {
-                        std::cout << "Found simple return statement - evaluating directly" << std::endl;
-                        Value result = evaluate(returnStmt->expression.get());
-                        std::cout << "Direct evaluation result: " << result.toString() << std::endl;
-
-                        // Restore environment before returning
-                        environment = previousEnv;
-                        return result;
-                    }
-                }
-            }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Error in single-statement optimization: " << e.what() << std::endl;
-                // Continue to normal execution
-            }
-        }
-
-        // Execute all statements with proper safety checks
-        for (const auto &stmt : execFunction->declaration->body->statements)
-        {
-            if (!stmt)
-            {
-                continue; // Skip null statements
-            }
-
-            try
-            {
-                execute(stmt.get());
-            }
-            catch (const ReturnException &e)
-            {
-                // Handle return statement
-                Value result = e.getValue();
-                environment = previousEnv; // Restore environment
-                return result;
-            }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Statement execution error: " << e.what() << std::endl;
-                // Continue to next statement rather than failing
-            }
-        }
-
-        // No return statement encountered, restore environment and return null
-        environment = previousEnv;
-        return Value();
-    }
-    catch (const ReturnException &e)
-    {
-        // Capture the return value from the function
-        Value result = e.getValue();
-        environment = previousEnv; // Restore environment
-        return result;
-    }
-    catch (const std::exception &e)
-    {
-        // Log any other exceptions
-        std::cerr << "Error executing module function: " << e.what() << std::endl;
-        environment = previousEnv; // Always restore environment
-        return Value();
-    }
-}
-
 void Interpreter::executeReExportStatement(ReExportNode *node, std::shared_ptr<Module> module)
 {
     if (!module)
@@ -903,71 +741,26 @@ void Interpreter::executeImportStatement(ImportNode *node)
             // Get the imported value
             Value importedValue = it->second;
             std::cout << "  Found export value of type: " << static_cast<int>(importedValue.getType()) << std::endl;
-            // Handle functions specially - use our new module registry approach
+            // Handle functions specially
             if (importedValue.isFunction())
             {
                 try
                 {
-                    // Get the original function object
-                    auto originalFunc = importedValue.asObject<Function>();
+                    // Get the function object
+                    auto funcObj = importedValue.asObject<Function>();
 
-                    if (originalFunc)
+                    if (funcObj)
                     {
-                        // SAFE APPROACH: Just create a simple wrapper and rely on importedFunction
-                        // This avoids any complex AST manipulation that might cause segfaults
-                        auto wrapperFunc = std::make_shared<Function>(nullptr, environment);
+                        // SIMPLEST APPROACH: Just use the same function but update its environment
+                        funcObj->closure = environment;
 
-                        // Set basic data
-                        wrapperFunc->data = std::make_shared<FunctionData>();
-                        wrapperFunc->data->name = localName;
-
-                        // Copy other data if available
-                        if (originalFunc->data)
+                        if (funcObj->declaration && funcObj->declaration->body)
                         {
-                            wrapperFunc->data->returnType = originalFunc->data->returnType;
-                            wrapperFunc->data->parameters = originalFunc->data->parameters;
-                            wrapperFunc->data->moduleName = node->moduleName;
+                            std::cout << "Function body found with " << funcObj->declaration->body->statements.size() << " statements" << std::endl;
+                            std::cout << "MODULE FIX: Defining function " << localName << " in environment" << std::endl;
                         }
 
-                        // Mark this as a module function
-                        wrapperFunc->isModuleFunction = true;
-                        wrapperFunc->originalFunctionName = originalName;
-
-                        // Keep the original reference - this is critical for execution
-                        wrapperFunc->importedFunction = originalFunc;
-
-                        std::cout << "Created simplified module wrapper function for " << localName
-                                  << " from " << node->moduleName << std::endl;
-
-                        // Register the original function in the module registry with both name formats
-                        gModuleRegistry.registerFunction(node->moduleName, originalName, originalFunc);
-
-                        // Also register with alternative module name formats
-                        std::string altModuleName;
-
-                        // If module name has .edu extension, register without it
-                        if (node->moduleName.size() > 4 &&
-                            node->moduleName.substr(node->moduleName.size() - 4) == ".edu")
-                        {
-                            altModuleName = node->moduleName.substr(0, node->moduleName.size() - 4);
-                            std::cout << "Also registering function with module path: "
-                                      << altModuleName << "." << originalName << std::endl;
-                            gModuleRegistry.registerFunction(altModuleName, originalName, originalFunc);
-                        }
-                        // If module name doesn't have .edu extension, register with it
-                        else
-                        {
-                            altModuleName = node->moduleName + ".edu";
-                            std::cout << "Also registering function with module path: "
-                                      << altModuleName << "." << originalName << std::endl;
-                            gModuleRegistry.registerFunction(altModuleName, originalName, originalFunc);
-                        }
-
-                        // Create new wrapper Value
-                        importedValue = Value(wrapperFunc, Value::Type::Function);
-
-                        std::cout << "Created module wrapper function for " << localName
-                                  << " from " << node->moduleName << " original name: " << originalName << std::endl;
+                        // We're using the same function object, no need to update importedValue
                     }
                 }
                 catch (const std::exception &e)
@@ -977,12 +770,16 @@ void Interpreter::executeImportStatement(ImportNode *node)
                 }
             }
 
+            // Register in environment
+            environment->define(localName, importedValue);
+
             // Also register in global environment
             globals->define(localName, importedValue);
 
             // Make sure the original name is registered if it's different
             if (originalName != localName)
             {
+                environment->define(originalName, importedValue);
                 globals->define(originalName, importedValue);
             }
 
@@ -1622,10 +1419,11 @@ void Interpreter::executeInputStatement(InputStatementNode *node)
 void Interpreter::executeFunction(FunctionNode *node)
 {
     // CRITICAL FIX FOR MODULE IMPORTS: Create function with stronger reference preservation
-    DEBUG_LOG("Creating function: ", node->name);
+    std::cout << "Creating function: " << node->name << std::endl;
 
-    // Clone the function node to ensure it persists beyond AST lifetime
-    auto nodeCopy = node->clone();
+    // Create a shared_ptr to the node with a no-op deleter to avoid double-free
+    auto nodeCopy = std::static_pointer_cast<FunctionNode>(
+        std::shared_ptr<ASTNode>((ASTNode *)node, [](ASTNode *) {}));
 
     // Create function with current environment as closure
     auto function = std::make_shared<Function>(nodeCopy, environment);
@@ -1639,18 +1437,13 @@ void Interpreter::executeFunction(FunctionNode *node)
     environment->define(node->name, functionValue);
 
     // Debug information
-    DEBUG_LOG("Function defined: ", node->name, " with declaration preserved");
-    if (nodeCopy && nodeCopy->body)
-    {
-        DEBUG_LOG("  Body preserved at: ", nodeCopy->body.get());
-        DEBUG_LOG("  Body use_count: ", nodeCopy->body.use_count());
-    }
+    std::cout << "Function defined: " << node->name << " with declaration preserved" << std::endl;
     DEBUG_LOG("Defined function: ", node->name);
 }
 
 void Interpreter::executeClass(ClassNode *node)
 {
-    DEBUG_LOG("DEBUG: Executing class declaration for: ", node->name);
+    std::cout << "DEBUG: Executing class declaration for: " << node->name << std::endl;
 
     // Create a new class
     auto klass = std::make_shared<Class>(node->name);
@@ -1668,7 +1461,7 @@ void Interpreter::executeClass(ClassNode *node)
             {
                 // Set the parent class reference
                 klass->parentClass = parentClassValue.asObject<Class>();
-                DEBUG_LOG("Class ", node->name, " extends ", node->baseClassName);
+                std::cout << "Class " << node->name << " extends " << node->baseClassName << std::endl;
 
                 // Copy parent class field names
                 if (klass->parentClass)
@@ -1700,12 +1493,12 @@ void Interpreter::executeClass(ClassNode *node)
             if (method->name == "constructor")
             {
                 klass->constructor = function;
-                DEBUG_LOG("Found constructor for class ", node->name);
+                std::cout << "Found constructor for class " << node->name << std::endl;
             }
             else
             {
                 klass->methods[method->name] = function;
-                DEBUG_LOG("Added method ", method->name, " to class ", node->name);
+                std::cout << "Added method " << method->name << " to class " << node->name << std::endl;
             }
         }
         // Collect field names from variable declarations
@@ -2206,57 +1999,9 @@ Value Interpreter::callFunction(const std::shared_ptr<Function> &function, const
         throw std::runtime_error("Invalid function (no data)");
     }
 
-    // Handle module functions using the module registry
-    if (function->isModuleFunction && function->importedFunction)
-    {
-        // Get module and function information for logging
-        std::string moduleName = function->data->moduleName;
-        std::string functionName = function->originalFunctionName;
-
-        // Copy essential information to ensure it's preserved in the function declaration
-        if (function->declaration && function->importedFunction->declaration)
-        {
-            // Ensure name is properly set
-            if (function->declaration->name.empty())
-            {
-                function->declaration->name = functionName;
-            }
-
-            // Ensure body is properly linked
-            if (!function->declaration->body && function->importedFunction->declaration->body)
-            {
-                function->declaration->body = function->importedFunction->declaration->body;
-            }
-        }
-
-        DEBUG_LOG("Executing imported module function: ", moduleName, ".", functionName);
-
-        // Print argument details for debugging
-        DEBUG_LOG("With ", arguments.size(), " arguments:");
-        for (size_t i = 0; i < arguments.size(); i++)
-        {
-            DEBUG_LOG("  Arg ", i, ": ", arguments[i].toString());
-        }
-
-        // Print information about the imported function
-        auto importedFunc = function->importedFunction;
-        DEBUG_LOG("Imported function details:");
-        DEBUG_LOG("  Name: ", (importedFunc->data ? importedFunc->data->name : "unknown"));
-        DEBUG_LOG("  Has declaration: ", (importedFunc->declaration ? "yes" : "no"));
-        DEBUG_LOG("  Parameter count: ", importedFunc->getParameterCount());
-
-        // Execute the function through the module registry
-        // No hardcoded implementations - use the module system as designed
-        Value result = gModuleRegistry.executeFunction(moduleName, functionName, arguments);
-
-        // Debug the result
-        DEBUG_LOG(functionName, ":", result.toString());
-        return result;
-    }
-
     // Get the function name for debugging
     std::string funcName = function->data->name;
-    DEBUG_LOG("Executing function: ", funcName, " with ", arguments.size(), " arguments");
+    std::cout << "Executing function: " << funcName << " with " << arguments.size() << " arguments" << std::endl;
 
     // Create a new environment for the function execution
     // Use the function's closure as parent environment if available, otherwise use globals
@@ -2314,63 +2059,21 @@ Value Interpreter::callFunction(const std::shared_ptr<Function> &function, const
 
     try
     {
+        // Simple function execution - both imported and local functions
+        // are handled the same way since they both have declarations
         std::string funcName = function->data ? function->data->name : "unknown";
-        DEBUG_LOG("Executing function: ", funcName);
+        std::cout << "Executing function: " << funcName << std::endl;
 
-        // Check if this is a wrapper for an imported function
-        if (function->importedFunction)
+        if (function->declaration && function->declaration->body)
         {
-            DEBUG_LOG("Executing imported function through wrapper");
-            auto originalFunc = function->importedFunction;
-
-            DEBUG_LOG("Debug info for imported function:");
-            DEBUG_LOG("  - Original function name: ", (originalFunc->data ? originalFunc->data->name : "unknown"));
-            DEBUG_LOG("  - Has declaration: ", (originalFunc->declaration ? "yes" : "no"));
-            DEBUG_LOG("  - Has closure: ", (originalFunc->closure ? "yes" : "no"));
-            // We need to create a proper execution environment for the imported function
-            // This environment should have the original function's closure as parent
-            // and contain all the parameter values passed to this wrapper call
-
-            // Create a new environment with original function's closure as parent
-            auto importEnv = std::make_shared<Environment>(originalFunc->closure);
-
-            // Bind the parameters to this new environment
-            auto paramNames = originalFunc->getParameterNames();
-            size_t paramCount = originalFunc->getParameterCount();
-
-            DEBUG_LOG("  - Parameter count: ", paramCount);
-
-            // Bind arguments to parameters
-            for (size_t i = 0; i < paramCount && i < arguments.size(); i++)
-            {
-                DEBUG_LOG("  - Binding parameter '", paramNames[i], "'");
-                importEnv->define(paramNames[i], arguments[i]);
-            }
-
-            // Execute using the original function's body and our new environment
-            if (originalFunc->declaration && originalFunc->declaration->body)
-            {
-                DEBUG_LOG("Using original function body with ",
-                          originalFunc->declaration->body->statements.size(), " statements");
-
-                executeBlockStatement(originalFunc->declaration->body.get(), importEnv);
-            }
-            else
-            {
-                DEBUG_LOG("Original function body not found: ", funcName);
-                throw std::runtime_error("Original function body not available");
-            }
-        }
-        else if (function->declaration && function->declaration->body)
-        {
-            DEBUG_LOG("Using declaration body with ", function->declaration->body->statements.size(), " statements");
+            std::cout << "Using declaration body with " << function->declaration->body->statements.size() << " statements" << std::endl;
 
             // Direct execution of the function body
             executeBlockStatement(function->declaration->body.get(), env);
         }
         else
         {
-            DEBUG_LOG("Function body not found: ", funcName);
+            std::cout << "Function body not found: " << funcName << std::endl;
             throw std::runtime_error("Function body not available");
         }
         // If no return statement was executed, return null
@@ -2631,68 +2334,6 @@ Value Interpreter::createInstance(std::shared_ptr<Class> klass, const std::vecto
         }
     }
     return objectValue;
-}
-
-// Interpreter constructor
-Interpreter::Interpreter(bool loadBuiltins) : environment(std::make_shared<Environment>())
-{
-    globals = environment;
-
-    // Only define native functions if requested
-    if (loadBuiltins)
-    {
-        defineNativeFunctions();
-    }
-
-    // Set the global interpreter instance for module registry
-    setInstance(this);
-
-    // Set the interpreter in the module registry
-    gModuleRegistry.setInterpreter(this);
-}
-
-// Evaluate a function body with a specific environment
-Value Interpreter::evaluateFunctionBody(ASTNode *body, std::shared_ptr<Environment> env)
-{
-    DEBUG_LOG("evaluateFunctionBody: Start");
-    DEBUG_LOG("Body ptr: ", body);
-    DEBUG_LOG("Env ptr: ", env.get());
-
-    // Save current environment
-    auto previousEnv = environment;
-    DEBUG_LOG("Saved previous environment");
-
-    try
-    {
-        // Set the execution environment
-        environment = env;
-        DEBUG_LOG("Set new environment");
-
-        // Execute the body
-        DEBUG_LOG("About to execute body...");
-        execute(body);
-        DEBUG_LOG("Body executed successfully");
-
-        // Restore previous environment
-        environment = previousEnv;
-
-        // If we get here without a return statement, return null
-        return Value();
-    }
-    catch (const ReturnException &e)
-    {
-        // Restore previous environment
-        environment = previousEnv;
-
-        // Return the value from the return statement
-        return e.getValue();
-    }
-    catch (...)
-    {
-        // Restore previous environment
-        environment = previousEnv;
-        throw;
-    }
 }
 
 void Interpreter::defineNativeFunctions()

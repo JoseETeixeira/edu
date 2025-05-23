@@ -27,13 +27,17 @@ Edu is a statically-typed programming language designed for readability and perf
 
 The following features are planned for future releases:
 
-- **Export/Import Keywords**: Allow to export functionality from one script to be read in another
+- **Class and Interfaces Export/Import**: Allow to export classes and interfaces from one script to be read in another
 - **Exception Handling**: Try/Catch blocks
+- **Structs(Interfaces)**: Allow to use interfaces/structs to define a variable's type
 - **Break in for loop**: Allow to break a for loop mid-execution
 - **Async/Await**: Automatic thread creation and management
-- **Module System**: Import functionality for code organization
 - **Package Installer**: Dependency management for Edu projects
 - **Standard Library**: Build out core functionality for common operations
+- **Generate binary executables**: Generate executables for running .edu projects directly
+- **IntelliSense for .edu files**: Enable code completion and parsing for .edu
+- **Templates/Typenames**: Execute code passing the type dynamically
+- **Map/Set**: Implement Maps and Sets
 
 ## Getting Started
 

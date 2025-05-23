@@ -1,5 +1,7 @@
 // Complex test program for the edu language
 
+import { add, subtract, MAX_VALUE } from "./mathUtils";
+
 // Variable declarations with different types
 int a = 10;
 int b = 20;
@@ -255,4 +257,11 @@ void function main() {
   print("Day 7: " + math.getDayName(7));
   print("Day 10: " + math.getDayName(10)); // Should print "Invalid day"
   testInheritance();
+
+  int x = 10;
+  int y = 3;
+
+  print("add:" + add(x, y));         // add: 13
+  print("subtract:" + subtract(x, y)); // subtract: 7
+  print("MAX_VALUE:" + MAX_VALUE); // MAX_VALUE: 100
 }

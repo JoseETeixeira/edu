@@ -1,3 +1,5 @@
+#pragma once
+
 #include <map>
 #include <memory>
 #include <string>
@@ -58,13 +60,37 @@ public:
 class FunctionNode : public ASTNode
 {
 public:
-  FunctionNode(const std::string &name, int line) : ASTNode(line), name(name) {}
+  FunctionNode(const std::string &name, int line) : ASTNode(line), name(name), isAsync(false) {}
+
+  // Clone this function with its full definition (for imports)
+  std::shared_ptr<FunctionNode> clone() const
+  {
+    auto newFunc = std::make_shared<FunctionNode>(name, getLine());
+    newFunc->returnType = returnType;
+    newFunc->isAsync = isAsync;
+
+    // Use shared_ptr for body to allow sharing between original and imported functions
+    newFunc->body = body;
+
+    // Clone parameters (these are still unique_ptr but we're creating new ones)
+    for (const auto &param : parameters)
+    {
+      auto newParam = std::make_unique<FunctionParameterNode>(param->name, param->getLine());
+      if (param->type)
+      {
+        newParam->type = std::make_unique<TypeNode>(param->type->typeName, param->type->getLine());
+      }
+      newFunc->parameters.push_back(std::move(newParam));
+    }
+
+    return newFunc;
+  }
 
   std::string name;
   std::vector<std::unique_ptr<FunctionParameterNode>> parameters;
   std::string returnType;
   bool isAsync;
-  std::unique_ptr<BlockStatementNode> body;
+  std::shared_ptr<BlockStatementNode> body; // Changed from unique_ptr to shared_ptr
 };
 
 class ExpressionNode : public ASTNode
@@ -107,18 +133,36 @@ public:
 class ImportNode : public ASTNode
 {
 public:
-  ImportNode(int line) : ASTNode(line) {}
+  ImportNode(int line) : ASTNode(line), hasDefaultImport(false), preserveExternalFunctions(true) {}
 
   std::string moduleName;
-  std::vector<std::string> imports;
+  bool hasDefaultImport;
+  std::string defaultImportName;
+  std::vector<std::pair<std::string, std::string>> namedImports; // Pairs of (originalName, localName)
+
+  // New flag to control how imported functions are handled
+  bool preserveExternalFunctions; // When true, function bodies are preserved during import
 };
 
 class ExportNode : public ASTNode
 {
 public:
-  ExportNode(int line) : ASTNode(line) {}
+  ExportNode(int line) : ASTNode(line), isDefault(false) {}
 
   std::unique_ptr<ASTNode> exportItem;
+  bool isDefault;
+  std::string exportName; // Used for named exports
+};
+
+// For handling re-exports
+class ReExportNode : public ExportNode
+{
+public:
+  ReExportNode(int line) : ExportNode(line) {}
+
+  std::string moduleName;
+  std::vector<std::pair<std::string, std::string>> namedExports; // Pairs of (originalName, exportName)
+  bool exportAll;                                                // For "export * from './module'"
 };
 
 class InterfaceNode : public ASTNode

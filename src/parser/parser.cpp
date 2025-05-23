@@ -1488,12 +1488,79 @@ std::unique_ptr<TryCatchNode> Parser::parseTryCatchStatement()
 
 std::unique_ptr<ExportNode> Parser::parseExportStatement()
 {
+    // Get the current line number
+    int line = peek().line;
+
     // Consume the 'export' keyword
     consume(TokenType::Keyword, "export",
             "Expected 'export' keyword in export statement");
 
-    // Determine what is being exported: class, function, variable, interface,
-    // template, or async function
+    // Check if it's a default export: "export default function/class/value"
+    bool isDefault = match(TokenType::Keyword, "default");
+
+    // Create the export node
+    std::unique_ptr<ExportNode> node = std::make_unique<ExportNode>(line);
+    node->isDefault = isDefault;
+
+    // Check if it's a re-export: "export * from './module'" or "export { a, b } from './module'"
+    if (match(TokenType::Punctuator, "*"))
+    {
+        // Handle "export * from './module'"
+        if (match(TokenType::Keyword, "from"))
+        {
+            std::string moduleName = consume(TokenType::String, "", "Expected module name after 'from'").value;
+            auto reExportNode = std::make_unique<ReExportNode>(line);
+            reExportNode->moduleName = moduleName;
+            reExportNode->exportAll = true;
+            consume(TokenType::Punctuator, ";", "Expected ';' after re-export statement");
+            return std::unique_ptr<ExportNode>(reExportNode.release());
+        }
+        else
+        {
+            error("Expected 'from' after export *");
+        }
+    }
+    else if (match(TokenType::Punctuator, "{"))
+    {
+        // Handle "export { a, b } from './module'" or "export { a as b, c } from './module'"
+        std::vector<std::pair<std::string, std::string>> namedExports;
+        do
+        {
+            std::string originalName = consume(TokenType::Identifier, "", "Expected export name").value;
+            std::string exportName = originalName;
+
+            // Handle renamed exports: "export { a as b }"
+            if (match(TokenType::Keyword, "as"))
+            {
+                exportName = consume(TokenType::Identifier, "", "Expected export alias after 'as'").value;
+            }
+
+            namedExports.push_back({originalName, exportName});
+        } while (match(TokenType::Punctuator, ","));
+
+        consume(TokenType::Punctuator, "}", "Expected '}' after export items");
+
+        // Check if it's a re-export with 'from'
+        if (match(TokenType::Keyword, "from"))
+        {
+            std::string moduleName = consume(TokenType::String, "", "Expected module name after 'from'").value;
+            auto reExportNode = std::make_unique<ReExportNode>(line);
+            reExportNode->moduleName = moduleName;
+            reExportNode->namedExports = std::move(namedExports);
+            reExportNode->exportAll = false;
+            consume(TokenType::Punctuator, ";", "Expected ';' after re-export statement");
+            return std::unique_ptr<ExportNode>(reExportNode.release());
+        }
+        else
+        {
+            // Regular named export of local variables
+            consume(TokenType::Punctuator, ";", "Expected ';' after export statement");
+            node->exportName = namedExports[0].first; // In this case, we just export existing declarations
+            return node;
+        }
+    }
+
+    // Handle normal exports: "export function/class/variable" or "export default function/class/variable"
     std::unique_ptr<ASTNode> exportItem;
 
     if (peek().type == TokenType::Keyword)
@@ -1506,11 +1573,38 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement()
             // If the next token is a 'class', 'function', 'interface', 'template', or
             // 'async', parse it accordingly
             exportItem = parseDeclaration();
+
+            // For named exports, store the name
+            if (!isDefault)
+            {
+                if (auto *funcNode = dynamic_cast<FunctionNode *>(exportItem.get()))
+                {
+                    node->exportName = funcNode->name;
+                }
+                else if (auto *classNode = dynamic_cast<ClassNode *>(exportItem.get()))
+                {
+                    node->exportName = classNode->name;
+                }
+            }
         }
         else
         {
             exportItem = parseVariableDeclaration(peek().value);
+
+            if (!isDefault && exportItem)
+            {
+                if (auto *varNode = dynamic_cast<VariableDeclarationNode *>(exportItem.get()))
+                {
+                    node->exportName = varNode->name;
+                }
+            }
         }
+    }
+    else if (isDefault)
+    {
+        // For "export default expression"
+        exportItem = std::make_unique<ExpressionStatementNode>(
+            parseExpression(), line);
     }
     else
     {
@@ -1523,52 +1617,101 @@ std::unique_ptr<ExportNode> Parser::parseExportStatement()
         error("Expected a valid item to export");
     }
 
-    // Create and return the export node
-    std::unique_ptr<ExportNode> node =
-        std::make_unique<ExportNode>(previous().line);
     node->exportItem = std::move(exportItem);
     return node;
 }
 
 std::unique_ptr<ImportNode> Parser::parseImportStatement()
 {
-    // Consume 'import' keyword
-    consume(TokenType::Keyword, "import", "Expected 'import' keyword");
+    // Create the import node
+    std::unique_ptr<ImportNode> node = std::make_unique<ImportNode>(previous().line);
 
-    // Parse the module name (assuming it's a string literal)
-    std::string moduleName =
-        consume(TokenType::String, "", "Expected module name").value;
+    // Note: 'import' keyword is already consumed in parseDeclaration()
 
-    // Optional: Parse imported items
-    std::vector<std::string> imports;
-    if (match(TokenType::Punctuator, "{"))
+    // Handle default imports
+    if (peek().type == TokenType::Identifier)
     {
+        // This is a default import: "import defaultName from './module'"
+        node->hasDefaultImport = true;
+        node->defaultImportName = consume(TokenType::Identifier, "", "Expected identifier for default import").value;
+
+        // Check for named imports after default import: "import defaultName, { name1, name2 } from './module'"
+        if (match(TokenType::Punctuator, ","))
+        {
+            if (!match(TokenType::Punctuator, "{"))
+            {
+                error("Expected '{' after default import and comma");
+            }
+
+            // Parse named imports
+            do
+            {
+                std::string originalName = consume(TokenType::Identifier, "", "Expected import name").value;
+                std::string localName = originalName;
+
+                // Handle renamed imports: "import { originalName as localName }"
+                if (match(TokenType::Keyword, "as"))
+                {
+                    localName = consume(TokenType::Identifier, "", "Expected local name after 'as'").value;
+                }
+
+                node->namedImports.push_back({originalName, localName});
+            } while (match(TokenType::Punctuator, ","));
+
+            consume(TokenType::Punctuator, "}", "Expected '}' after named imports");
+        }
+    }
+    // Handle named imports without default import
+    else if (match(TokenType::Punctuator, "{"))
+    {
+        // This is a named import: "import { name1, name2 } from './module'"
         do
         {
-            std::string importItem =
-                consume(TokenType::Identifier, "", "Expected import item").value;
-            imports.push_back(importItem);
+            std::string originalName = consume(TokenType::Identifier, "", "Expected import name").value;
+            std::string localName = originalName;
+
+            // Handle renamed imports: "import { originalName as localName }"
+            if (match(TokenType::Keyword, "as"))
+            {
+                localName = consume(TokenType::Identifier, "", "Expected local name after 'as'").value;
+            }
+
+            node->namedImports.push_back({originalName, localName});
         } while (match(TokenType::Punctuator, ","));
-        consume(TokenType::Punctuator, "}", "Expected '}' after import items");
+
+        consume(TokenType::Punctuator, "}", "Expected '}' after named imports");
+    }
+    // Handle namespace imports: "import * as name from './module'"
+    else if (match(TokenType::Punctuator, "*"))
+    {
+        if (match(TokenType::Keyword, "as"))
+        {
+            std::string namespaceName = consume(TokenType::Identifier, "", "Expected namespace name after 'as'").value;
+            node->hasDefaultImport = true;
+            node->defaultImportName = namespaceName;
+        }
+        else
+        {
+            error("Expected 'as' after '*' in import statement");
+        }
+    }
+    else
+    {
+        // This handles side-effect imports: "import './module';"
+        node->moduleName = consume(TokenType::String, "", "Expected module name").value;
+        consume(TokenType::Punctuator, ";", "Expected ';' after import statement");
+        return node;
     }
 
-    // Optional: Consume 'from' keyword
-    if (match(TokenType::Keyword, "from"))
-    {
-        // Consume the actual module name
-        moduleName =
-            consume(TokenType::String, "", "Expected module name after 'from'")
-                .value;
-    }
+    // Consume 'from' keyword
+    consume(TokenType::Keyword, "from", "Expected 'from' after import specifiers");
+
+    // Parse the module name
+    node->moduleName = consume(TokenType::String, "", "Expected module name after 'from'").value;
 
     // Consume the end of statement token (semicolon)
     consume(TokenType::Punctuator, ";", "Expected ';' after import statement");
 
-    // Create and return the ImportNode
-    std::unique_ptr<ImportNode> node =
-        std::make_unique<ImportNode>(previous().line);
-    node->moduleName = std::move(moduleName);
-    node->imports = std::move(imports);
     return node;
 }
 
