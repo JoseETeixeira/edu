@@ -1,0 +1,41 @@
+// Test with object fields
+class Counter {
+    int count = 0;
+    
+    void function incrementPostfix() {
+        count++;
+    }
+    
+    void function incrementPrefix() {
+        ++count;
+    }
+    
+    int function getCount() {
+        return count;
+    }
+}
+
+int function main() {
+    int x = 5;
+    print("x before: " + x);
+    x++;
+    print("x after postfix ++: " + x);
+    
+    int y = 10;
+    print("y before: " + y);
+    ++y;
+    print("y after prefix ++: " + y);
+    
+    Counter c = Counter();
+    print("Initial count: " + c.getCount());
+    
+    c.incrementPostfix();
+    print("After postfix increment: " + c.getCount());
+    
+    c.incrementPrefix();
+    print("After prefix increment: " + c.getCount());
+    
+    return 0;
+}
+
+main();

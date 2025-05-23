@@ -593,6 +593,25 @@ void Interpreter::collectExport(ExportNode *node, std::shared_ptr<Module> module
             std::cout << "ERROR: Failed to register function: " << e.what() << std::endl;
         }
     }
+    else if (auto *classNode = dynamic_cast<ClassNode *>(node->exportItem.get()))
+    {
+        // Handle class exports
+        executeClass(classNode);
+
+        try
+        {
+            // Get the class from current environment
+            Value classValue = environment->get(classNode->name);
+
+            // Add to module's exports
+            module->namedExports[classNode->name] = classValue;
+            DEBUG_LOG("Added class ", classNode->name, " to module exports");
+        }
+        catch (const std::exception &e)
+        {
+            DEBUG_LOG("ERROR: Failed to register class: ", e.what());
+        }
+    }
     else
     {
         // For other export types, execute normally
@@ -650,6 +669,19 @@ void Interpreter::collectExport(ExportNode *node, std::shared_ptr<Module> module
             {
                 module->namedExports[varNode->name] = varValue;
                 module->exports->define(varNode->name, varValue);
+                DEBUG_LOG("Added variable ", varNode->name, " to module exports");
+            }
+        }
+        else if (auto *classNode = dynamic_cast<ClassNode *>(node->exportItem.get()))
+        {
+            // Get the class from environment (already executed above)
+            Value classValue = environment->get(classNode->name);
+
+            // Add to namedExports
+            if (module->namedExports.find(classNode->name) == module->namedExports.end())
+            {
+                module->namedExports[classNode->name] = classValue;
+                module->exports->define(classNode->name, classValue);
             }
         }
     }
@@ -1226,6 +1258,10 @@ Value Interpreter::evaluate(ExpressionNode *expr)
     {
         return evaluateBinaryExpression(binaryExpr);
     }
+    else if (auto unaryExpr = dynamic_cast<UnaryExpressionNode *>(expr))
+    {
+        return evaluateUnaryExpression(unaryExpr);
+    }
 
     DEBUG_LOG("Unknown expression type: ", typeid(*expr).name());
     return Value(); // Default to null
@@ -1692,9 +1728,13 @@ void Interpreter::executeClass(ClassNode *node)
     {
         if (auto method = dynamic_cast<FunctionNode *>(member.get()))
         {
-            auto function = std::make_shared<Function>(
-                std::static_pointer_cast<FunctionNode>(
-                    std::shared_ptr<ASTNode>((ASTNode *)method, [](ASTNode *) {})));
+            // Clone the FunctionNode to ensure it persists beyond the AST lifetime
+            auto clonedMethod = method->clone();
+            auto methodNode = std::static_pointer_cast<FunctionNode>(clonedMethod);
+
+            DEBUG_LOG("Preserved body reference in function data");
+
+            auto function = std::make_shared<Function>(methodNode);
 
             // Check if this is a constructor
             if (method->name == "constructor")
@@ -1750,6 +1790,164 @@ Value Interpreter::evaluateVariableExpression(VariableExpressionNode *node)
     {
         DEBUG_LOG("ERROR: Variable '", node->name, "' not found: ", e.what());
         throw;
+    }
+}
+
+Value Interpreter::evaluateUnaryExpression(UnaryExpressionNode *node)
+{
+    DEBUG_LOG("Evaluating unary expression: ", node->op);
+
+    // For ++ and -- operators, we need special handling
+    if (node->op == "++" || node->op == "--")
+    {
+        // The operand must be a variable or member access that we can modify
+        if (auto varExpr = dynamic_cast<VariableExpressionNode *>(node->operand.get()))
+        {
+            Value currentValue = environment->get(varExpr->name);
+            Value newValue;
+
+            if (node->op == "++")
+            {
+                if (currentValue.isInteger())
+                {
+                    newValue = Value(currentValue.asInt() + 1);
+                }
+                else if (currentValue.isFloat())
+                {
+                    newValue = Value(currentValue.asFloat() + 1.0f);
+                }
+                else
+                {
+                    throw std::runtime_error("Cannot increment non-numeric value");
+                }
+            }
+            else // node->op == "--"
+            {
+                if (currentValue.isInteger())
+                {
+                    newValue = Value(currentValue.asInt() - 1);
+                }
+                else if (currentValue.isFloat())
+                {
+                    newValue = Value(currentValue.asFloat() - 1.0f);
+                }
+                else
+                {
+                    throw std::runtime_error("Cannot decrement non-numeric value");
+                }
+            }
+
+            // Update the variable
+            environment->assign(varExpr->name, newValue);
+
+            // Return the appropriate value based on prefix/postfix
+            if (node->isPrefix)
+            {
+                return newValue; // Prefix: return new value
+            }
+            else
+            {
+                return currentValue; // Postfix: return old value
+            }
+        }
+        else if (auto memberExpr = dynamic_cast<MemberAccessExpressionNode *>(node->operand.get()))
+        {
+            // Handle increment/decrement on object members
+            Value objectValue = evaluate(memberExpr->object.get());
+
+            if (objectValue.isObject())
+            {
+                auto obj = std::static_pointer_cast<Object>(objectValue.asObject<void>());
+                if (!obj->fields.count(memberExpr->memberName))
+                {
+                    throw std::runtime_error("Object has no field: " + memberExpr->memberName);
+                }
+
+                Value currentValue = obj->fields[memberExpr->memberName];
+                Value newValue;
+
+                if (node->op == "++")
+                {
+                    if (currentValue.isInteger())
+                    {
+                        newValue = Value(currentValue.asInt() + 1);
+                    }
+                    else if (currentValue.isFloat())
+                    {
+                        newValue = Value(currentValue.asFloat() + 1.0f);
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Cannot increment non-numeric value");
+                    }
+                }
+                else // node->op == "--"
+                {
+                    if (currentValue.isInteger())
+                    {
+                        newValue = Value(currentValue.asInt() - 1);
+                    }
+                    else if (currentValue.isFloat())
+                    {
+                        newValue = Value(currentValue.asFloat() - 1.0f);
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Cannot decrement non-numeric value");
+                    }
+                }
+
+                // Update the field
+                obj->fields[memberExpr->memberName] = newValue;
+
+                // Return the appropriate value based on prefix/postfix
+                if (node->isPrefix)
+                {
+                    return newValue; // Prefix: return new value
+                }
+                else
+                {
+                    return currentValue; // Postfix: return old value
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Cannot access member of non-object value");
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid operand for increment/decrement operator");
+        }
+    }
+    else
+    {
+        // For other unary operators, evaluate the operand first
+        Value operand = evaluate(node->operand.get());
+
+        if (node->op == "-")
+        {
+            if (operand.isInteger())
+            {
+                return Value(-operand.asInt());
+            }
+            else if (operand.isFloat())
+            {
+                return Value(-operand.asFloat());
+            }
+            else
+            {
+                throw std::runtime_error("Cannot negate non-numeric value");
+            }
+        }
+        else if (node->op == "!")
+        {
+            return Value(!operand.asBool());
+        }
+        else
+        {
+            throw std::runtime_error("Unknown unary operator: " + node->op);
+        }
     }
 }
 
@@ -1854,6 +2052,22 @@ Value Interpreter::evaluateCallExpression(CallExpressionNode *node)
 
                     // Get the method and bind it to the object
                     auto method = obj->klass->getMethod(memberExpr->memberName);
+
+                    // Debug check for method validity
+                    if (!method)
+                    {
+                        throw std::runtime_error("Method '" + memberExpr->memberName + "' is null");
+                    }
+
+                    if (!method->declaration)
+                    {
+                        throw std::runtime_error("Method '" + memberExpr->memberName + "' has null declaration");
+                    }
+
+                    DEBUG_LOG("Creating bound method for: ", memberExpr->memberName);
+                    DEBUG_LOG("Method declaration exists: ", (method->declaration != nullptr));
+                    DEBUG_LOG("Method closure exists: ", (method->closure != nullptr));
+
                     auto boundMethod = std::make_shared<Function>(
                         method->declaration,
                         method->closure, // Preserve the original closure
@@ -2367,6 +2581,38 @@ Value Interpreter::callFunction(const std::shared_ptr<Function> &function, const
 
             // Direct execution of the function body
             executeBlockStatement(function->declaration->body.get(), env);
+
+            // If this is a method call, sync modified fields back to the object
+            if (function->thisObject)
+            {
+                try
+                {
+                    auto object = std::static_pointer_cast<Object>(function->thisObject);
+                    if (object && object->klass)
+                    {
+                        // Update object fields from the environment
+                        for (const auto &fieldName : object->klass->fieldNames)
+                        {
+                            try
+                            {
+                                // Get the potentially modified value from the environment
+                                Value fieldValue = env->get(fieldName);
+                                // Update the object's field
+                                object->fields[fieldName] = fieldValue;
+                                DEBUG_LOG("Synced field ", fieldName, " back to object");
+                            }
+                            catch (const std::exception &)
+                            {
+                                // Field might not exist in environment, skip it
+                            }
+                        }
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    DEBUG_LOG("Error syncing method fields back to object: ", e.what());
+                }
+            }
         }
         else
         {
@@ -2378,6 +2624,38 @@ Value Interpreter::callFunction(const std::shared_ptr<Function> &function, const
     }
     catch (const ReturnException &e)
     {
+        // If this is a method call, sync modified fields back to the object before returning
+        if (function->thisObject)
+        {
+            try
+            {
+                auto object = std::static_pointer_cast<Object>(function->thisObject);
+                if (object && object->klass)
+                {
+                    // Update object fields from the environment
+                    for (const auto &fieldName : object->klass->fieldNames)
+                    {
+                        try
+                        {
+                            // Get the potentially modified value from the environment
+                            Value fieldValue = env->get(fieldName);
+                            // Update the object's field
+                            object->fields[fieldName] = fieldValue;
+                            DEBUG_LOG("Synced field ", fieldName, " back to object (return)");
+                        }
+                        catch (const std::exception &)
+                        {
+                            // Field might not exist in environment, skip it
+                        }
+                    }
+                }
+            }
+            catch (const std::exception &e)
+            {
+                DEBUG_LOG("Error syncing method fields back to object: ", e.what());
+            }
+        }
+
         // Return the value from the return statement
         return e.getValue();
     }

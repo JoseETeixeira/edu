@@ -768,6 +768,7 @@ private:
     // Expression evaluation
     Value evaluateVariableExpression(VariableExpressionNode *node);
     Value evaluateBinaryExpression(BinaryExpressionNode *node);
+    Value evaluateUnaryExpression(UnaryExpressionNode *node);
     Value evaluateCallExpression(CallExpressionNode *node);
     Value evaluateAssignmentExpression(AssignmentExpressionNode *node);
     Value evaluateMemberAccessExpression(MemberAccessExpressionNode *node);

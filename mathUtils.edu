@@ -16,3 +16,18 @@ export int function subtract(int a, int b) {
 export int function multiply(int a, int b) {
   return a * b;
 }
+
+export class TestClass {
+  int value = 100;
+  constructor() {
+    value = 0;
+  }
+
+  void function increment() {
+    value++;
+  }
+
+  int function getValue() {
+    return value;
+  }
+}

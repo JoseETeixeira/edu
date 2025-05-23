@@ -27,9 +27,7 @@ Edu is a statically-typed programming language designed for readability and perf
 
 The following features are planned for future releases:
 
-- **Class and Interfaces Export/Import**: Allow to export classes and interfaces from one script to be read in another
 - **Exception Handling**: Try/Catch blocks
-- **Structs(Interfaces)**: Allow to use interfaces/structs to define a variable's type
 - **Break in for loop**: Allow to break a for loop mid-execution
 - **Async/Await**: Automatic thread creation and management
 - **Package Installer**: Dependency management for Edu projects
@@ -38,6 +36,8 @@ The following features are planned for future releases:
 - **IntelliSense for .edu files**: Enable code completion and parsing for .edu
 - **Templates/Typenames**: Execute code passing the type dynamically
 - **Map/Set**: Implement Maps and Sets
+- **Structs/Interfaces**: Enable setting custom types by defining an interface
+- **'const' keyword**: Enable defining constants
 
 ## Getting Started
 

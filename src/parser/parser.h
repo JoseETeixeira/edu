@@ -155,7 +155,7 @@ private:
   std::unique_ptr<ExpressionNode> parseAnonymousFunction();
 
   std::unique_ptr<CallExpressionNode>
-  parseCallExpression(std::unique_ptr<VariableExpressionNode> callee);
+  parseCallExpression(std::unique_ptr<ExpressionNode> callee);
   std::unique_ptr<MemberAccessExpressionNode>
   parseMemberAccessExpression(std::unique_ptr<ExpressionNode> object);
 

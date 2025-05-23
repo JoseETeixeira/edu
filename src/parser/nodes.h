@@ -297,10 +297,11 @@ class UnaryExpressionNode : public ExpressionNode
 {
 public:
   UnaryExpressionNode(const std::string &op, int line)
-      : ExpressionNode(line), op(op) {}
+      : ExpressionNode(line), op(op), isPrefix(true) {}
 
-  std::string op; // Operator, e.g., "-", "!"
+  std::string op; // Operator, e.g., "-", "!", "++", "--"
   std::unique_ptr<ExpressionNode> operand;
+  bool isPrefix; // true for prefix operators (++x), false for postfix (x++)
 };
 
 class CallExpressionNode : public ExpressionNode

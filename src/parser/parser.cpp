@@ -248,8 +248,9 @@ std::unique_ptr<ASTNode> Parser::parseStatement()
         DEBUG_LOG("Parsing try statement");
         return parseTryCatchStatement();
     }
-    // Check for variable declaration with class instantiation
-    else if (isClassName(peek().value) &&
+    // Check for variable declaration with class instantiation or imported type
+    // Pattern: Identifier Identifier = expression
+    else if (peek().type == TokenType::Identifier &&
              peekNext().type == TokenType::Identifier &&
              peekNextNext().type == TokenType::Operator &&
              peekNextNext().value == "=")
@@ -611,48 +612,59 @@ std::unique_ptr<ExpressionNode> Parser::parseMultiplicationExpression()
             break; // No more multiplication, division, or modulo operators.
         }
     }
-
     return left; // Return the built expression node.
 }
 
 std::unique_ptr<ExpressionNode> Parser::parseUnaryExpression()
+
 {
-    if (match(TokenType::Identifier, ""))
-    {
-        std::string identifier = previous().value;
-
-        if (match(TokenType::Punctuator, "("))
-        {
-            // It's a function call
-            return parseCallExpression(std::make_unique<VariableExpressionNode>(
-                identifier, previous().line));
-        }
-        else if (match(TokenType::Punctuator, "."))
-        {
-            // It's a member access
-            return parseMemberAccessExpression(
-                std::make_unique<VariableExpressionNode>(identifier,
-                                                         previous().line));
-        }
-
-        // If it's just an identifier (not a function call or member access)
-        return std::make_unique<VariableExpressionNode>(identifier,
-                                                        previous().line);
-    }
-
-    // Check for unary operators
-    if (match(TokenType::Operator, "-") || match(TokenType::Operator, "!"))
+    // Check for prefix unary operators (++, --, -, !)
+    if (match(TokenType::Operator, "++") || match(TokenType::Operator, "--") ||
+        match(TokenType::Operator, "-") || match(TokenType::Operator, "!"))
     {
         std::string operatorValue = previous().value; // Get the unary operator
         auto operand = parseUnaryExpression();        // Recursively parse the operand
         std::unique_ptr<UnaryExpressionNode> node =
             std::make_unique<UnaryExpressionNode>(operatorValue, previous().line);
         node->operand = std::move(operand);
+        node->isPrefix = true; // Mark as prefix operator
         return node;
     }
 
-    // If no unary operator is found, parse the primary expression
-    return parsePrimaryExpression();
+    // Parse the primary expression first
+    auto expr = parsePrimaryExpression();
+
+    // Check for postfix operators (++ and --)
+    if (match(TokenType::Operator, "++") || match(TokenType::Operator, "--"))
+    {
+        std::string operatorValue = previous().value;
+        std::unique_ptr<UnaryExpressionNode> node =
+            std::make_unique<UnaryExpressionNode>(operatorValue, previous().line);
+        node->operand = std::move(expr);
+        node->isPrefix = false; // Mark as postfix operator
+        return node;
+    }
+
+    // Check for member access and function calls
+    while (true)
+    {
+        if (match(TokenType::Punctuator, "("))
+        {
+            // It's a function call
+            expr = parseCallExpression(std::move(expr));
+        }
+        else if (match(TokenType::Punctuator, "."))
+        {
+            // It's a member access
+            expr = parseMemberAccessExpression(std::move(expr));
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return expr;
 }
 
 std::unique_ptr<ExpressionNode> Parser::parsePrimaryExpression()
@@ -887,19 +899,37 @@ std::unique_ptr<ASTNode> Parser::parseClassMember()
         DEBUG_LOG("Parsing constructor declaration");
         return parseConstructorDeclaration();
     }
-    // Check if the member is a method
-    else if (peek().type == TokenType::Keyword && isType(peek().value) &&
-             (peekNext().value == "async" ||
-              (peekNext().type == TokenType::Declaration && peekNext().value == "function")))
+    // Check if the member is a method or property (both start with a type)
+    else if (peek().type == TokenType::Keyword && isType(peek().value))
     {
-        DEBUG_LOG("Parsing function declaration");
-        return parseFunctionDeclaration();
-    }
-    // Check if the member is a property
-    else if (isType(peek().value))
-    {
-        DEBUG_LOG("Parsing property declaration");
-        return parsePropertyDeclaration();
+        // Look ahead to determine if it's a method or property
+        // Methods: "type identifier(" or "type function identifier("
+        // Properties: "type identifier;" or "type identifier ="
+
+        size_t savedPos = current;
+        advance(); // Skip the type
+
+        if (peek().value == "function")
+        {
+            // Method with function keyword: "type function identifier("
+            current = savedPos; // Reset position
+            DEBUG_LOG("Parsing function declaration with function keyword");
+            return parseFunctionDeclaration();
+        }
+        else if (peek().type == TokenType::Identifier && peekNext().value == "(")
+        {
+            // Method without function keyword: "type identifier("
+            current = savedPos; // Reset position
+            DEBUG_LOG("Parsing method declaration without function keyword");
+            return parseFunctionDeclaration();
+        }
+        else
+        {
+            // Property: "type identifier;" or "type identifier ="
+            current = savedPos; // Reset position
+            DEBUG_LOG("Parsing property declaration");
+            return parsePropertyDeclaration();
+        }
     }
 
     DEBUG_LOG("Unsupported class member type: ", peek().value);
@@ -1716,7 +1746,7 @@ std::unique_ptr<ImportNode> Parser::parseImportStatement()
 }
 
 std::unique_ptr<CallExpressionNode>
-Parser::parseCallExpression(std::unique_ptr<VariableExpressionNode> callee)
+Parser::parseCallExpression(std::unique_ptr<ExpressionNode> callee)
 {
     std::vector<std::unique_ptr<ExpressionNode>> arguments;
     if (!check(TokenType::Punctuator, ")"))

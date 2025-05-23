@@ -336,6 +336,6 @@ bool Tokenizer::isPunctuator(char ch)
 bool Tokenizer::isMultiCharacterOperator(const std::string &op)
 {
     static const std::set<std::string> multiCharOperators = {
-        "&&", "||", "==", "!=", "<=", ">=", "+=", "-=", "*=", "/="};
+        "&&", "||", "==", "!=", "<=", ">=", "+=", "-=", "*=", "/=", "++", "--"};
     return multiCharOperators.find(op) != multiCharOperators.end();
 }
